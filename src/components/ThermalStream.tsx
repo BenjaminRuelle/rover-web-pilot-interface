@@ -10,7 +10,7 @@ const ThermalStream: React.FC = () => {
   return (
     <>
       {/* Toggle Button */}
-      <div className="absolute top-20 right-6 z-10">
+      <div className="absolute top-20 left-48 z-10">
         <Button
           onClick={() => setIsVisible(!isVisible)}
           variant="outline"
@@ -24,7 +24,7 @@ const ThermalStream: React.FC = () => {
 
       {/* Thermal Stream Overlay */}
       {isVisible && (
-        <div className="absolute top-32 right-6 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-4 w-80 z-10">
+        <div className="absolute top-32 left-48 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-4 w-80 z-10">
           {/* Header with alarm status */}
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">

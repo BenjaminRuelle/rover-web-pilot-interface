@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Progress } from '@/components/ui/progress';
-import { Battery, Cpu, Thermometer } from 'lucide-react';
+import { Battery, Cpu, Thermometer, Wifi } from 'lucide-react';
 
 const MonitorHub: React.FC = () => {
   // Mock data - in real implementation these would come from WebSocket subscriptions
@@ -9,6 +9,8 @@ const MonitorHub: React.FC = () => {
   const robotState = 'Manual'; // Autopilot/Docked/Manual/Lost
   const temperature = 42; // Celsius
   const cpuUsage = 68; // percentage
+  const robotName = 'Optimus';
+  const robotIP = '192.168.1.100';
 
   const getStateColor = (state: string) => {
     switch (state) {
@@ -35,6 +37,21 @@ const MonitorHub: React.FC = () => {
   return (
     <div className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-4 min-w-64">
       <div className="text-white/80 text-sm space-y-4">
+        {/* Robot Name and IP */}
+        <div className="space-y-1 border-b border-white/10 pb-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-white/60">Robot</span>
+            <span className="text-xs font-medium text-white">{robotName}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Wifi className="w-3 h-3 text-white/60" />
+              <span className="text-xs text-white/60">IP</span>
+            </div>
+            <span className="text-xs text-white/80">{robotIP}</span>
+          </div>
+        </div>
+
         {/* Robot State - moved to top */}
         <div className="flex items-center justify-between">
           <span className="text-xs text-white/60">State</span>

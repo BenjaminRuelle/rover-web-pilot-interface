@@ -11,21 +11,6 @@ interface ConditionNodeProps {
 }
 
 export const ConditionNode: React.FC<ConditionNodeProps> = ({ data }) => {
-  const getConditionIcon = () => {
-    switch (data.config?.type) {
-      case 'person_detected':
-        return '👤';
-      case 'temperature_above':
-        return '🌡️';
-      case 'time_between':
-        return '⏰';
-      case 'motion_detected':
-        return '🏃';
-      default:
-        return '❓';
-    }
-  };
-
   const getConditionDetails = () => {
     const { config } = data;
     switch (config?.type) {
@@ -51,7 +36,6 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({ data }) => {
       </div>
       
       <div className="flex items-center space-x-2 mb-2">
-        <span className="text-lg">{getConditionIcon()}</span>
         <span className="text-white font-medium text-sm">{data.label}</span>
       </div>
       

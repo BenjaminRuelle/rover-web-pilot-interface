@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { X } from 'lucide-react';
+import { X, Trash2 } from 'lucide-react';
 import { ScenarioNode } from '@/types/scenario';
 
 interface NodeConfigSidebarProps {
@@ -13,6 +13,7 @@ interface NodeConfigSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onUpdateConfig: (nodeId: string, config: any) => void;
+  onDeleteNode: (nodeId: string) => void;
 }
 
 const NodeConfigSidebar: React.FC<NodeConfigSidebarProps> = ({
@@ -20,12 +21,15 @@ const NodeConfigSidebar: React.FC<NodeConfigSidebarProps> = ({
   isOpen,
   onClose,
   onUpdateConfig,
+  onDeleteNode,
 }) => {
   const [config, setConfig] = useState<any>({});
+  const [label, setLabel] = useState<string>('');
 
   useEffect(() => {
     if (node) {
       setConfig(node.data.config || {});
+      setLabel(node.data.label || '');
     }
   }, [node]);
 
@@ -34,6 +38,21 @@ const NodeConfigSidebar: React.FC<NodeConfigSidebarProps> = ({
     setConfig(newConfig);
     if (node) {
       onUpdateConfig(node.id, newConfig);
+    }
+  };
+
+  const handleLabelChange = (newLabel: string) => {
+    setLabel(newLabel);
+    if (node) {
+      const newConfig = { ...config, label: newLabel };
+      onUpdateConfig(node.id, newConfig);
+    }
+  };
+
+  const handleDeleteNode = () => {
+    if (node) {
+      onDeleteNode(node.id);
+      onClose();
     }
   };
 
@@ -56,10 +75,10 @@ const NodeConfigSidebar: React.FC<NodeConfigSidebarProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600">
-                  <SelectItem value="person_detected">Person Detected</SelectItem>
-                  <SelectItem value="temperature_above">Temperature Above</SelectItem>
-                  <SelectItem value="time_between">Time Between</SelectItem>
-                  <SelectItem value="motion_detected">Motion Detected</SelectItem>
+                  <SelectItem value="person_detected" className="text-white">Person Detected</SelectItem>
+                  <SelectItem value="temperature_above" className="text-white">Temperature Above</SelectItem>
+                  <SelectItem value="time_between" className="text-white">Time Between</SelectItem>
+                  <SelectItem value="motion_detected" className="text-white">Motion Detected</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -129,10 +148,10 @@ const NodeConfigSidebar: React.FC<NodeConfigSidebarProps> = ({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-700 border-slate-600">
-                  <SelectItem value="trigger_alarm">Trigger Alarm</SelectItem>
-                  <SelectItem value="move_to_location">Move to Location</SelectItem>
-                  <SelectItem value="send_notification">Send Notification</SelectItem>
-                  <SelectItem value="capture_image">Capture Image</SelectItem>
+                  <SelectItem value="trigger_alarm" className="text-white">Trigger Alarm</SelectItem>
+                  <SelectItem value="move_to_location" className="text-white">Move to Location</SelectItem>
+                  <SelectItem value="send_notification" className="text-white">Send Notification</SelectItem>
+                  <SelectItem value="capture_image" className="text-white">Capture Image</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -191,9 +210,9 @@ const NodeConfigSidebar: React.FC<NodeConfigSidebarProps> = ({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-slate-700 border-slate-600">
-                <SelectItem value="AND">AND</SelectItem>
-                <SelectItem value="OR">OR</SelectItem>
-                <SelectItem value="NOT">NOT</SelectItem>
+                <SelectItem value="AND" className="text-white">AND</SelectItem>
+                <SelectItem value="OR" className="text-white">OR</SelectItem>
+                <SelectItem value="NOT" className="text-white">NOT</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -231,13 +250,25 @@ const NodeConfigSidebar: React.FC<NodeConfigSidebarProps> = ({
           <div>
             <Label className="text-white">Label</Label>
             <Input
-              value={node.data.label}
-              onChange={(e) => onUpdateConfig(node.id, { ...config, label: e.target.value })}
+              value={label}
+              onChange={(e) => handleLabelChange(e.target.value)}
               className="bg-slate-600 border-slate-500 text-white"
             />
           </div>
 
           {renderConfigFields()}
+
+          <div className="pt-4">
+            <Button
+              onClick={handleDeleteNode}
+              variant="destructive"
+              size="sm"
+              className="w-full flex items-center gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete Node
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

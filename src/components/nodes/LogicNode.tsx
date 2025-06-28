@@ -40,7 +40,6 @@ export const LogicNode: React.FC<LogicNodeProps> = ({ data }) => {
   return (
     <div className={`${getLogicColor()} border-2 rounded-lg p-3 min-w-[120px] shadow-lg`}>
       <Handle type="target" position={Position.Left} className="w-3 h-3" />
-      <Handle type="target" position={Position.Top} className="w-3 h-3" />
       
       <div className="flex items-center space-x-2 mb-1">
         <GitBranch className="w-4 h-4 text-white" />

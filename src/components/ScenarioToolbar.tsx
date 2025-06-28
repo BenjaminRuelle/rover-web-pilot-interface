@@ -16,10 +16,10 @@ const ScenarioToolbar: React.FC<ScenarioToolbarProps> = ({ onAddNode, onExport }
       title: 'Conditions',
       icon: Eye,
       items: [
-        { type: 'condition' as NodeType, label: 'Person Detected', icon: '👤' },
-        { type: 'condition' as NodeType, label: 'Temperature', icon: '🌡️' },
-        { type: 'condition' as NodeType, label: 'Time Range', icon: '⏰' },
-        { type: 'condition' as NodeType, label: 'Motion', icon: '🏃' },
+        { type: 'condition' as NodeType, label: 'Person Detected' },
+        { type: 'condition' as NodeType, label: 'Temperature' },
+        { type: 'condition' as NodeType, label: 'Time Range' },
+        { type: 'condition' as NodeType, label: 'Motion' },
       ]
     },
     {
@@ -75,7 +75,7 @@ const ScenarioToolbar: React.FC<ScenarioToolbarProps> = ({ onAddNode, onExport }
                   onClick={() => onAddNode(item.type)}
                   className="w-full justify-start text-white/80 hover:bg-slate-600 hover:text-white"
                 >
-                  <span className="mr-2">{item.icon}</span>
+                  {item.icon && <span className="mr-2">{item.icon}</span>}
                   <Plus className="w-3 h-3 mr-2" />
                   {item.label}
                 </Button>

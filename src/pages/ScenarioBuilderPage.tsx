@@ -64,11 +64,16 @@ const ScenarioBuilderPage: React.FC = () => {
     setNodes((nds) =>
       nds.map((node) =>
         node.id === nodeId
-          ? { ...node, data: { ...node.data, config } }
+          ? { ...node, data: { ...node.data, config, label: config.label || node.data.label } }
           : node
       )
     );
   }, [setNodes]);
+
+  const deleteNode = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+    setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+  }, [setNodes, setEdges]);
 
   const exportScenario = useCallback(() => {
     const scenario = {
@@ -133,6 +138,7 @@ const ScenarioBuilderPage: React.FC = () => {
           isOpen={isSidebarOpen}
           onClose={() => setIsSidebarOpen(false)}
           onUpdateConfig={updateNodeConfig}
+          onDeleteNode={deleteNode}
         />
       </div>
     </div>

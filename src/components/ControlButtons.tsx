@@ -63,7 +63,7 @@ const ControlButtons: React.FC<ControlButtonsProps> = ({ isHovered }) => {
     }`}>
       
       {/* Top Control Row */}
-      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 flex gap-4">
+      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2 flex gap-4">
         <div className="flex flex-col items-center gap-1">
           <Button
             onClick={handlePatrol}

@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar';
 import VideoStream from '@/components/VideoStream';
 import JoystickOverlay from '@/components/JoystickOverlay';
 import MiniMap from '@/components/MiniMap';
+import MonitorHub from '@/components/MonitorHub';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 const PilotagePage: React.FC = () => {
@@ -38,15 +39,8 @@ const PilotagePage: React.FC = () => {
       {/* Joystick overlay with integrated controls - bottom center */}
       <JoystickOverlay />
 
-      {/* System info overlay - bottom right */}
-      <div className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-3">
-        <div className="text-white/80 text-xs space-y-1">
-          <div className="font-medium text-white mb-2">SYSTEM</div>
-          <div>/cmd_vel - Movement</div>
-          <div>/map - Navigation</div>
-          <div>/amcl_pose - Position</div>
-        </div>
-      </div>
+      {/* Monitor Hub - bottom right */}
+      <MonitorHub />
     </div>
   );
 };

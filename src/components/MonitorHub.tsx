@@ -35,7 +35,13 @@ const MonitorHub: React.FC = () => {
   return (
     <div className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-4 min-w-64">
       <div className="text-white/80 text-sm space-y-4">
-        <div className="font-medium text-white mb-3 text-center">MONITOR HUB</div>
+        {/* Robot State - moved to top */}
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-white/60">State</span>
+          <span className={`text-xs font-medium ${getStateColor(robotState)}`}>
+            {robotState.toUpperCase()}
+          </span>
+        </div>
         
         {/* Battery Status */}
         <div className="space-y-2">
@@ -53,14 +59,6 @@ const MonitorHub: React.FC = () => {
               style={{ width: `${batteryLevel}%` }}
             />
           </div>
-        </div>
-
-        {/* Robot State */}
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-white/60">State</span>
-          <span className={`text-xs font-medium ${getStateColor(robotState)}`}>
-            {robotState.toUpperCase()}
-          </span>
         </div>
 
         {/* Temperature */}

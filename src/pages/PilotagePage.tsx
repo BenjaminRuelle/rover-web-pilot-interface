@@ -5,6 +5,7 @@ import VideoStream from '@/components/VideoStream';
 import JoystickOverlay from '@/components/JoystickOverlay';
 import MiniMap from '@/components/MiniMap';
 import MonitorHub from '@/components/MonitorHub';
+import ThermalStream from '@/components/ThermalStream';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 const PilotagePage: React.FC = () => {
@@ -35,6 +36,9 @@ const PilotagePage: React.FC = () => {
 
       {/* Mini map - top right */}
       <MiniMap />
+
+      {/* Thermal Stream - toggle and overlay */}
+      <ThermalStream />
 
       {/* Joystick overlay with integrated controls - bottom center */}
       <JoystickOverlay />

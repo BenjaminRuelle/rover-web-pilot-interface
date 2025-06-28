@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import PatrolMap from '@/components/PatrolMap';
 import PatrolToolbar, { PatrolTool } from '@/components/PatrolToolbar';
+import PatrolScheduler from '@/components/PatrolScheduler';
 
 const PatrolPlanningPage: React.FC = () => {
   const [activeTool, setActiveTool] = useState<PatrolTool>('select');
@@ -29,13 +30,21 @@ const PatrolPlanningPage: React.FC = () => {
           onClear={handleClear}
         />
         
-        {/* Map - takes remaining space */}
-        <div className="flex-1">
-          <PatrolMap 
-            activeTool={activeTool}
-            onSave={handleSave}
-            onClear={handleClear}
-          />
+        {/* Main content area */}
+        <div className="flex-1 flex">
+          {/* Map - takes most of the space */}
+          <div className="flex-1">
+            <PatrolMap 
+              activeTool={activeTool}
+              onSave={handleSave}
+              onClear={handleClear}
+            />
+          </div>
+          
+          {/* Scheduler sidebar */}
+          <div className="w-80 bg-slate-800 border-l border-slate-700 p-4 overflow-y-auto">
+            <PatrolScheduler />
+          </div>
         </div>
       </div>
     </div>

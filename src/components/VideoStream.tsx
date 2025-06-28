@@ -60,7 +60,9 @@ const VideoStream: React.FC<VideoStreamProps> = ({
           playsInline
         >
           <source src={streamUrl} type="video/mp4" />
-          {/* Fallback video for demo */}
+          {/* YouTube demo video as fallback */}
+          <source src="https://www.youtube.com/watch?v=AqD3zsEPTPw" type="video/mp4" />
+          {/* Additional fallback video */}
           <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
           Votre navigateur ne supporte pas la lecture vidéo.
         </video>

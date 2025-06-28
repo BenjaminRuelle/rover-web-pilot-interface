@@ -26,6 +26,22 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({ data }) => {
     }
   };
 
+  const getConditionEmoji = () => {
+    const { config } = data;
+    switch (config?.type) {
+      case 'person_detected':
+        return '👤';
+      case 'temperature_above':
+        return '🌡️';
+      case 'time_between':
+        return '⏰';
+      case 'motion_detected':
+        return '🏃';
+      default:
+        return '👁️';
+    }
+  };
+
   return (
     <div className="bg-blue-600 border-2 border-blue-500 rounded-lg p-3 min-w-[150px] shadow-lg">
       <Handle type="target" position={Position.Left} className="w-3 h-3" />
@@ -36,6 +52,7 @@ export const ConditionNode: React.FC<ConditionNodeProps> = ({ data }) => {
       </div>
       
       <div className="flex items-center space-x-2 mb-2">
+        <span className="text-lg">{getConditionEmoji()}</span>
         <span className="text-white font-medium text-sm">{data.label}</span>
       </div>
       

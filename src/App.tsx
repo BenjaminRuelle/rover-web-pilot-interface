@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
 import PilotagePage from "@/pages/PilotagePage";
+import PatrolPlanningPage from "@/pages/PatrolPlanningPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['admin', 'user1']}>
             <PilotagePage />
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/patrol" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'user1']}>
+            <PatrolPlanningPage />
           </ProtectedRoute>
         } 
       />

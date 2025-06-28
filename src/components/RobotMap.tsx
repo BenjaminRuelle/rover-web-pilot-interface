@@ -10,35 +10,39 @@ interface RobotPose {
   orientation: { x: number; y: number; z: number; w: number };
 }
 
-interface OccupancyGrid {
+// Static map data for offline use
+const STATIC_MAP = {
   info: {
-    resolution: number;
-    width: number;
-    height: number;
+    resolution: 0.05,
+    width: 400,
+    height: 400,
     origin: {
-      position: { x: number; y: number; z: number };
-      orientation: { x: number; y: number; z: number; w: number };
-    };
-  };
-  data: number[];
-}
+      position: { x: -10, y: -10, z: 0 },
+      orientation: { x: 0, y: 0, z: 0, w: 1 }
+    }
+  },
+  // Generate a simple grid pattern for demo
+  data: new Array(400 * 400).fill(0).map((_, i) => {
+    const x = i % 400;
+    const y = Math.floor(i / 400);
+    // Create walls around edges and some obstacles
+    if (x < 5 || x > 395 || y < 5 || y > 395) return 100; // walls
+    if ((x > 100 && x < 120 && y > 100 && y < 200) || 
+        (x > 250 && x < 300 && y > 150 && y < 250)) return 100; // obstacles
+    return Math.random() > 0.95 ? -1 : 0; // mostly free with some unknown areas
+  })
+};
 
 const RobotMap: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
-  const [map, setMap] = useState<OccupancyGrid | null>(null);
   const [followRobot, setFollowRobot] = useState(true);
   const [scale, setScale] = useState(2);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const { isConnected, subscribe } = useWebSocket();
 
-  // Souscrire aux topics ROS2
+  // Only subscribe to robot pose, not map
   useEffect(() => {
-    const unsubscribeMap = subscribe('/map', 'nav_msgs/msg/OccupancyGrid', (data: OccupancyGrid) => {
-      console.log('Carte reçue:', data);
-      setMap(data);
-    });
-
     const unsubscribePose = subscribe('/amcl_pose', 'geometry_msgs/msg/PoseWithCovarianceStamped', (data: any) => {
       console.log('Position reçue:', data);
       if (data.pose && data.pose.pose) {
@@ -47,58 +51,57 @@ const RobotMap: React.FC = () => {
     });
 
     return () => {
-      unsubscribeMap();
       unsubscribePose();
     };
   }, [subscribe]);
 
-  // Convertir quaternion en angle
+  // Convert quaternion to angle
   const quaternionToYaw = useCallback((q: { x: number; y: number; z: number; w: number }) => {
     return Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
   }, []);
 
-  // Convertir coordonnées monde vers pixel
+  // Convert world coordinates to pixel coordinates
   const worldToPixel = useCallback((worldX: number, worldY: number, mapInfo: any) => {
     const pixelX = Math.floor((worldX - mapInfo.origin.position.x) / mapInfo.resolution);
     const pixelY = Math.floor((worldY - mapInfo.origin.position.y) / mapInfo.resolution);
-    return { x: pixelX, y: mapInfo.height - pixelY }; // Inverser Y
+    return { x: pixelX, y: mapInfo.height - pixelY }; // Invert Y
   }, []);
 
-  // Dessiner la carte et le robot
+  // Draw the map and robot
   const drawMap = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !map) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Ajuster la taille du canvas
+    // Adjust canvas size
     canvas.width = 400;
     canvas.height = 400;
 
-    // Effacer le canvas
+    // Clear canvas
     ctx.fillStyle = '#1e293b';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Calculer la transformation
+    // Calculate transformation
     let centerX = canvas.width / 2;
     let centerY = canvas.height / 2;
 
     if (followRobot && robotPose) {
-      const robotPixel = worldToPixel(robotPose.position.x, robotPose.position.y, map.info);
+      const robotPixel = worldToPixel(robotPose.position.x, robotPose.position.y, STATIC_MAP.info);
       centerX = canvas.width / 2 - (robotPixel.x * scale) - offset.x;
       centerY = canvas.height / 2 - (robotPixel.y * scale) - offset.y;
     }
 
-    // Dessiner la carte d'occupation
-    const imageData = ctx.createImageData(map.info.width, map.info.height);
+    // Draw occupancy grid
+    const imageData = ctx.createImageData(STATIC_MAP.info.width, STATIC_MAP.info.height);
     
-    for (let i = 0; i < map.data.length; i++) {
-      const value = map.data[i];
-      let color = 128; // Gris pour inconnu (-1)
+    for (let i = 0; i < STATIC_MAP.data.length; i++) {
+      const value = STATIC_MAP.data[i];
+      let color = 128; // Gray for unknown (-1)
       
-      if (value === 0) color = 255; // Blanc pour libre
-      else if (value === 100) color = 0; // Noir pour occupé
+      if (value === 0) color = 255; // White for free
+      else if (value === 100) color = 0; // Black for occupied
       
       const pixelIndex = i * 4;
       imageData.data[pixelIndex] = color;     // R
@@ -107,39 +110,39 @@ const RobotMap: React.FC = () => {
       imageData.data[pixelIndex + 3] = 255;   // A
     }
 
-    // Créer un canvas temporaire pour l'image
+    // Create temporary canvas for the image
     const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = map.info.width;
-    tempCanvas.height = map.info.height;
+    tempCanvas.width = STATIC_MAP.info.width;
+    tempCanvas.height = STATIC_MAP.info.height;
     const tempCtx = tempCanvas.getContext('2d');
     if (tempCtx) {
       tempCtx.putImageData(imageData, 0, 0);
       
-      // Dessiner l'image mise à l'échelle
+      // Draw scaled image
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(
         tempCanvas,
         centerX,
         centerY,
-        map.info.width * scale,
-        map.info.height * scale
+        STATIC_MAP.info.width * scale,
+        STATIC_MAP.info.height * scale
       );
     }
 
-    // Dessiner le robot
+    // Draw robot if pose is available
     if (robotPose) {
-      const robotPixel = worldToPixel(robotPose.position.x, robotPose.position.y, map.info);
+      const robotPixel = worldToPixel(robotPose.position.x, robotPose.position.y, STATIC_MAP.info);
       const robotX = centerX + robotPixel.x * scale;
       const robotY = centerY + robotPixel.y * scale;
       const robotYaw = quaternionToYaw(robotPose.orientation);
 
-      // Corps du robot (cercle bleu)
+      // Robot body (blue circle)
       ctx.fillStyle = '#3b82f6';
       ctx.beginPath();
       ctx.arc(robotX, robotY, 8, 0, 2 * Math.PI);
       ctx.fill();
 
-      // Direction du robot (triangle)
+      // Robot direction (triangle)
       ctx.fillStyle = '#1e40af';
       ctx.save();
       ctx.translate(robotX, robotY);
@@ -152,7 +155,7 @@ const RobotMap: React.FC = () => {
       ctx.fill();
       ctx.restore();
 
-      // Contour blanc pour la visibilité
+      // White outline for visibility
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -160,7 +163,7 @@ const RobotMap: React.FC = () => {
       ctx.stroke();
     }
 
-    // Dessiner la grille si zoomé
+    // Draw grid if zoomed in
     if (scale > 4) {
       ctx.strokeStyle = '#334155';
       ctx.lineWidth = 0.5;
@@ -180,14 +183,14 @@ const RobotMap: React.FC = () => {
         ctx.stroke();
       }
     }
-  }, [map, robotPose, scale, offset, followRobot, worldToPixel, quaternionToYaw]);
+  }, [robotPose, scale, offset, followRobot, worldToPixel, quaternionToYaw]);
 
-  // Redessiner quand les données changent
+  // Redraw when data changes
   useEffect(() => {
     drawMap();
   }, [drawMap]);
 
-  // Gestion du zoom avec la molette
+  // Handle zoom with mouse wheel
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -221,17 +224,12 @@ const RobotMap: React.FC = () => {
             onWheel={handleWheel}
           />
           
-          {!map && (
-            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/50 rounded-lg">
-              <div className="text-slate-400 text-center">
-                <div className="text-sm">En attente de la carte...</div>
-                <div className="text-xs mt-1 opacity-75">Topic: /map</div>
-              </div>
-            </div>
-          )}
+          <div className="absolute top-2 left-2 bg-slate-900/75 rounded px-2 py-1 text-xs text-white/70">
+            Map: Static (Offline)
+          </div>
         </div>
 
-        {/* Informations */}
+        {/* Information */}
         <div className="mt-4 grid grid-cols-2 gap-4 text-xs">
           <div className="bg-slate-700 rounded-lg p-2">
             <div className="text-slate-400 mb-1">Position Robot</div>
@@ -248,15 +246,11 @@ const RobotMap: React.FC = () => {
           
           <div className="bg-slate-700 rounded-lg p-2">
             <div className="text-slate-400 mb-1">Carte</div>
-            {map ? (
-              <div className="text-white font-mono">
-                {map.info.width}×{map.info.height}<br />
-                Résolution: {map.info.resolution}m<br />
-                Zoom: {scale.toFixed(1)}x
-              </div>
-            ) : (
-              <div className="text-slate-400">Aucune carte</div>
-            )}
+            <div className="text-white font-mono">
+              {STATIC_MAP.info.width}×{STATIC_MAP.info.height}<br />
+              Résolution: {STATIC_MAP.info.resolution}m<br />
+              Zoom: {scale.toFixed(1)}x
+            </div>
           </div>
         </div>
       </CardContent>

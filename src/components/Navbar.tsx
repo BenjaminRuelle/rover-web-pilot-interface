@@ -2,10 +2,13 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, User, MapPin } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   return (
     <nav className="absolute top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-md border-b border-white/10 px-6 py-3">
@@ -14,6 +17,27 @@ const Navbar: React.FC = () => {
           <h1 className="text-xl font-bold text-white">
             🤖 Robot Control
           </h1>
+          
+          <div className="flex space-x-2">
+            <Button
+              variant={location.pathname === '/pilotage' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => navigate('/pilotage')}
+              className="text-white/80 border-white/20 hover:bg-white/10 hover:text-white"
+            >
+              Control
+            </Button>
+            
+            <Button
+              variant={location.pathname === '/patrol' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => navigate('/patrol')}
+              className="text-white/80 border-white/20 hover:bg-white/10 hover:text-white"
+            >
+              <MapPin className="w-4 h-4 mr-2" />
+              Patrol
+            </Button>
+          </div>
         </div>
 
         {user && (

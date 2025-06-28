@@ -2,81 +2,53 @@
 import React from 'react';
 import Navbar from '@/components/Navbar';
 import VideoStream from '@/components/VideoStream';
-import VirtualJoystick from '@/components/VirtualJoystick';
-import RobotMap from '@/components/RobotMap';
+import JoystickOverlay from '@/components/JoystickOverlay';
+import MiniMap from '@/components/MiniMap';
+import CockpitControls from '@/components/CockpitControls';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 const PilotagePage: React.FC = () => {
   const { isConnected } = useWebSocket();
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-slate-900 relative overflow-hidden">
       <Navbar />
       
-      <div className="p-6">
-        {/* Statut de connexion ROS2 */}
-        <div className="mb-6">
-          <div className={`inline-flex items-center px-3 py-2 rounded-lg text-sm font-medium ${
-            isConnected 
-              ? 'bg-green-900 text-green-300 border border-green-700' 
-              : 'bg-red-900 text-red-300 border border-red-700'
-          }`}>
-            <div className={`w-2 h-2 rounded-full mr-2 ${
-              isConnected ? 'bg-green-400' : 'bg-red-400'
-            }`} />
-            {isConnected ? 'ROS2 Connecté' : 'ROS2 Déconnecté'}
-          </div>
+      {/* Main video stream - full screen background */}
+      <div className="absolute inset-0">
+        <VideoStream streamUrl="rtsp://192.168.1.100:554/stream1" />
+      </div>
+
+      {/* Connection status overlay */}
+      <div className="absolute top-20 left-6 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 px-3 py-2">
+        <div className={`inline-flex items-center text-sm font-medium ${
+          isConnected 
+            ? 'text-green-300' 
+            : 'text-red-300'
+        }`}>
+          <div className={`w-2 h-2 rounded-full mr-2 ${
+            isConnected ? 'bg-green-400' : 'bg-red-400'
+          }`} />
+          ROS2 {isConnected ? 'Connected' : 'Disconnected'}
         </div>
+      </div>
 
-        {/* Grille principale */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          
-          {/* Flux vidéo - prend 2 colonnes sur xl */}
-          <div className="xl:col-span-2">
-            <VideoStream streamUrl="rtsp://192.168.1.100:554/stream1" />
-          </div>
+      {/* Mini map - top right */}
+      <MiniMap />
 
-          {/* Contrôles joystick */}
-          <div>
-            <VirtualJoystick />
-          </div>
+      {/* Control buttons - bottom left */}
+      <CockpitControls />
 
-          {/* Carte robot - prend toute la largeur sur mobile/tablet, 2 colonnes sur desktop */}
-          <div className="lg:col-span-2 xl:col-span-3">
-            <RobotMap />
-          </div>
-        </div>
+      {/* Joystick overlay - bottom center */}
+      <JoystickOverlay />
 
-        {/* Informations système */}
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-            <h3 className="text-slate-300 text-sm font-medium mb-2">Topics ROS2</h3>
-            <div className="space-y-1 text-xs">
-              <div className="text-slate-400">/cmd_vel - Commandes de vitesse</div>
-              <div className="text-slate-400">/map - Carte d'occupation</div>
-              <div className="text-slate-400">/amcl_pose - Position du robot</div>
-            </div>
-          </div>
-
-          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-            <h3 className="text-slate-300 text-sm font-medium mb-2">Flux Vidéo</h3>
-            <div className="space-y-1 text-xs">
-              <div className="text-slate-400">Source: rtsp://192.168.1.100:554/stream1</div>
-              <div className="text-slate-400">Résolution: Automatique</div>
-              <div className="text-slate-400">Latence: Temps réel</div>
-            </div>
-          </div>
-
-          <div className="bg-slate-800 rounded-lg p-4 border border-slate-700">
-            <h3 className="text-slate-300 text-sm font-medium mb-2">WebSocket</h3>
-            <div className="space-y-1 text-xs">
-              <div className="text-slate-400">Adresse: ws://localhost:9090</div>
-              <div className="text-slate-400">Protocol: rosbridge_suite</div>
-              <div className={`${isConnected ? 'text-green-400' : 'text-red-400'}`}>
-                État: {isConnected ? 'Connecté' : 'Déconnecté'}
-              </div>
-            </div>
-          </div>
+      {/* System info overlay - bottom right */}
+      <div className="absolute bottom-6 right-6 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-3">
+        <div className="text-white/80 text-xs space-y-1">
+          <div className="font-medium text-white mb-2">SYSTEM</div>
+          <div>/cmd_vel - Movement</div>
+          <div>/map - Navigation</div>
+          <div>/amcl_pose - Position</div>
         </div>
       </div>
     </div>

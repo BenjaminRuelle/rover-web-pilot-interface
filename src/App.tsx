@@ -7,14 +7,13 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
-import DashboardPage from "@/pages/DashboardPage";
 import PilotagePage from "@/pages/PilotagePage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
 const AppRoutes = () => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   return (
     <Routes>
@@ -22,19 +21,10 @@ const AppRoutes = () => {
         path="/login" 
         element={
           isAuthenticated ? (
-            <Navigate to={user?.role === 'admin' ? '/dashboard' : '/pilotage'} replace />
+            <Navigate to="/pilotage" replace />
           ) : (
             <LoginPage />
           )
-        } 
-      />
-      
-      <Route 
-        path="/dashboard" 
-        element={
-          <ProtectedRoute allowedRoles={['admin']}>
-            <DashboardPage />
-          </ProtectedRoute>
         } 
       />
       
@@ -51,7 +41,7 @@ const AppRoutes = () => {
         path="/" 
         element={
           isAuthenticated ? (
-            <Navigate to={user?.role === 'admin' ? '/dashboard' : '/pilotage'} replace />
+            <Navigate to="/pilotage" replace />
           ) : (
             <Navigate to="/login" replace />
           )

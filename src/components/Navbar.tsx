@@ -20,19 +20,25 @@ const Navbar: React.FC = () => {
           
           <div className="flex space-x-2">
             <Button
-              variant={location.pathname === '/pilotage' ? 'default' : 'outline'}
+              variant={location.pathname === '/pilotage' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => navigate('/pilotage')}
-              className="text-white/80 border-white/20 hover:bg-white/10 hover:text-white"
+              className={location.pathname === '/pilotage' 
+                ? "bg-blue-600 text-white hover:bg-blue-700" 
+                : "text-white/80 hover:bg-white/10 hover:text-white"
+              }
             >
               Control
             </Button>
             
             <Button
-              variant={location.pathname === '/patrol' ? 'default' : 'outline'}
+              variant={location.pathname === '/patrol' ? 'default' : 'ghost'}
               size="sm"
               onClick={() => navigate('/patrol')}
-              className="text-white/80 border-white/20 hover:bg-white/10 hover:text-white"
+              className={location.pathname === '/patrol' 
+                ? "bg-blue-600 text-white hover:bg-blue-700" 
+                : "text-white/80 hover:bg-white/10 hover:text-white"
+              }
             >
               <MapPin className="w-4 h-4 mr-2" />
               Patrol
@@ -50,10 +56,10 @@ const Navbar: React.FC = () => {
             </div>
             
             <Button
-              variant="outline"
+              variant="ghost"
               size="sm"
               onClick={logout}
-              className="text-white/80 border-white/20 hover:bg-white/10 hover:text-white"
+              className="text-white/80 hover:bg-white/10 hover:text-white"
             >
               <LogOut className="w-4 h-4 mr-2" />
               Déconnexion

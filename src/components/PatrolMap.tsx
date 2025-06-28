@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { PatrolTool } from './PatrolToolbar';
-import PatrolToolbar from './PatrolToolbar';
 
 interface Point {
   x: number;
@@ -14,9 +13,14 @@ interface KeepoutZone {
   completed: boolean;
 }
 
-const PatrolMap: React.FC = () => {
+interface PatrolMapProps {
+  activeTool: PatrolTool;
+  onSave: () => void;
+  onClear: () => void;
+}
+
+const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [activeTool, setActiveTool] = useState<PatrolTool>('select');
   const [waypoints, setWaypoints] = useState<Point[]>([]);
   const [keepoutZones, setKeepoutZones] = useState<KeepoutZone[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
@@ -24,14 +28,40 @@ const PatrolMap: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [activeZone, setActiveZone] = useState<string | null>(null);
 
-  // Load static map image
+  // Load the uploaded map image
   const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
+  const [mapScale, setMapScale] = useState(1);
+  const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     const img = new Image();
-    img.onload = () => setMapImage(img);
-    // Using a placeholder map image - in real implementation, this would be your static map
-    img.src = 'https://images.unsplash.com/photo-1519302959554-a75be0afc82a?w=1200&h=800&fit=crop';
+    img.onload = () => {
+      setMapImage(img);
+      // Calculate scale to fit the map in canvas while maintaining aspect ratio
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const canvasAspect = canvas.offsetWidth / canvas.offsetHeight;
+        const imageAspect = img.width / img.height;
+        
+        let scale: number;
+        let offsetX = 0;
+        let offsetY = 0;
+        
+        if (imageAspect > canvasAspect) {
+          // Image is wider, fit to width
+          scale = canvas.offsetWidth / img.width;
+          offsetY = (canvas.offsetHeight - img.height * scale) / 2;
+        } else {
+          // Image is taller, fit to height
+          scale = canvas.offsetHeight / img.height;
+          offsetX = (canvas.offsetWidth - img.width * scale) / 2;
+        }
+        
+        setMapScale(scale);
+        setMapOffset({ x: offsetX, y: offsetY });
+      }
+    };
+    img.src = '/lovable-uploads/e0784714-beed-409d-8760-417979b44c80.png';
   }, []);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -47,8 +77,18 @@ const PatrolMap: React.FC = () => {
     canvas.width = canvas.offsetWidth;
     canvas.height = canvas.offsetHeight;
 
-    // Draw background map
-    ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
+    // Clear canvas with dark background
+    ctx.fillStyle = '#0f172a';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw the map image with proper scaling and centering
+    ctx.drawImage(
+      mapImage, 
+      mapOffset.x, 
+      mapOffset.y, 
+      mapImage.width * mapScale, 
+      mapImage.height * mapScale
+    );
 
     // Draw keepout zones
     keepoutZones.forEach(zone => {
@@ -115,7 +155,7 @@ const PatrolMap: React.FC = () => {
       ctx.stroke();
       ctx.setLineDash([]);
     }
-  }, [mapImage, waypoints, keepoutZones, selectedPoint]);
+  }, [mapImage, mapScale, mapOffset, waypoints, keepoutZones, selectedPoint]);
 
   useEffect(() => {
     drawMap();
@@ -234,7 +274,7 @@ const PatrolMap: React.FC = () => {
     setDragOffset({ x: 0, y: 0 });
   };
 
-  const handleSave = () => {
+  const handleSaveInternal = () => {
     console.log('Saving patrol route:', {
       waypoints: waypoints.map((point, index) => ({
         order: index + 1,
@@ -246,14 +286,15 @@ const PatrolMap: React.FC = () => {
         points: zone.points.map(p => ({ x: p.x, y: p.y }))
       }))
     });
-    // In real implementation, this would send data to the robot
+    onSave();
   };
 
-  const handleClear = () => {
+  const handleClearInternal = () => {
     setWaypoints([]);
     setKeepoutZones([]);
     setActiveZone(null);
     setSelectedPoint(null);
+    onClear();
   };
 
   const handleDelete = () => {
@@ -276,55 +317,46 @@ const PatrolMap: React.FC = () => {
   }, [selectedPoint]);
 
   return (
-    <div className="relative h-full">
-      <PatrolToolbar
-        activeTool={activeTool}
-        onToolChange={setActiveTool}
-        onSave={handleSave}
-        onClear={handleClear}
+    <div className="relative h-full bg-slate-900">
+      <canvas
+        ref={canvasRef}
+        className="w-full h-full cursor-crosshair"
+        onClick={handleCanvasClick}
+        onDoubleClick={handleCanvasDoubleClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
       />
       
-      <div className="absolute inset-0 top-16 bg-slate-900">
-        <canvas
-          ref={canvasRef}
-          className="w-full h-full cursor-crosshair"
-          onClick={handleCanvasClick}
-          onDoubleClick={handleCanvasDoubleClick}
-          onMouseDown={handleMouseDown}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-        />
-        
-        {/* Instructions overlay */}
-        <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-3 text-white text-sm max-w-sm">
-          {activeTool === 'select' && (
-            <div>
-              <div className="font-medium mb-1">Select Tool</div>
-              <div className="text-xs text-white/70">Click and drag waypoints to move them. Press Delete to remove selected point.</div>
-            </div>
-          )}
-          {activeTool === 'waypoint' && (
-            <div>
-              <div className="font-medium mb-1">Patrol Points Tool</div>
-              <div className="text-xs text-white/70">Click on the map to place waypoints. Points will be connected in order.</div>
-            </div>
-          )}
-          {activeTool === 'keepout' && (
-            <div>
-              <div className="font-medium mb-1">Keepout Zone Tool</div>
-              <div className="text-xs text-white/70">Click to add points to a polygon. Double-click to complete the zone.</div>
-            </div>
-          )}
-        </div>
-
-        {/* Status overlay */}
-        <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-3 text-white text-sm">
-          <div className="space-y-1">
-            <div>Waypoints: {waypoints.length}</div>
-            <div>Keepout Zones: {keepoutZones.filter(z => z.completed).length}</div>
-            {selectedPoint && <div className="text-blue-400">Point selected</div>}
+      {/* Instructions overlay */}
+      <div className="absolute top-4 left-4 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-3 text-white text-sm max-w-sm">
+        {activeTool === 'select' && (
+          <div>
+            <div className="font-medium mb-1">Select Tool</div>
+            <div className="text-xs text-white/70">Click and drag waypoints to move them. Press Delete to remove selected point.</div>
           </div>
+        )}
+        {activeTool === 'waypoint' && (
+          <div>
+            <div className="font-medium mb-1">Patrol Points Tool</div>
+            <div className="text-xs text-white/70">Click on the map to place waypoints. Points will be connected in order.</div>
+          </div>
+        )}
+        {activeTool === 'keepout' && (
+          <div>
+            <div className="font-medium mb-1">Keepout Zone Tool</div>
+            <div className="text-xs text-white/70">Click to add points to a polygon. Double-click to complete the zone.</div>
+          </div>
+        )}
+      </div>
+
+      {/* Status overlay */}
+      <div className="absolute bottom-4 right-4 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-3 text-white text-sm">
+        <div className="space-y-1">
+          <div>Waypoints: {waypoints.length}</div>
+          <div>Keepout Zones: {keepoutZones.filter(z => z.completed).length}</div>
+          {selectedPoint && <div className="text-blue-400">Point selected</div>}
         </div>
       </div>
     </div>

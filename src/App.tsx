@@ -9,6 +9,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import LoginPage from "@/pages/LoginPage";
 import PilotagePage from "@/pages/PilotagePage";
 import PatrolPlanningPage from "@/pages/PatrolPlanningPage";
+import ScenarioBuilderPage from "@/pages/ScenarioBuilderPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +44,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={['admin', 'user1']}>
             <PatrolPlanningPage />
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/scenarios" 
+        element={
+          <ProtectedRoute allowedRoles={['admin', 'user1']}>
+            <ScenarioBuilderPage />
           </ProtectedRoute>
         } 
       />

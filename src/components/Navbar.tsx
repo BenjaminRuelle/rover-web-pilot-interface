@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, MapPin } from 'lucide-react';
+import { LogOut, User, MapPin, Workflow } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const Navbar: React.FC = () => {
@@ -25,7 +25,7 @@ const Navbar: React.FC = () => {
               onClick={() => navigate('/pilotage')}
               className={location.pathname === '/pilotage' 
                 ? "bg-blue-600 text-white hover:bg-blue-700" 
-                : "text-white/80 hover:bg-white/10 hover:text-white"
+                : "text-white hover:bg-white/10 hover:text-white"
               }
             >
               Control
@@ -37,11 +37,24 @@ const Navbar: React.FC = () => {
               onClick={() => navigate('/patrol')}
               className={location.pathname === '/patrol' 
                 ? "bg-blue-600 text-white hover:bg-blue-700" 
-                : "text-white/80 hover:bg-white/10 hover:text-white"
+                : "text-white hover:bg-white/10 hover:text-white"
               }
             >
               <MapPin className="w-4 h-4 mr-2" />
               Patrol
+            </Button>
+
+            <Button
+              variant={location.pathname === '/scenarios' ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => navigate('/scenarios')}
+              className={location.pathname === '/scenarios' 
+                ? "bg-blue-600 text-white hover:bg-blue-700" 
+                : "text-white hover:bg-white/10 hover:text-white"
+              }
+            >
+              <Workflow className="w-4 h-4 mr-2" />
+              Scenarios
             </Button>
           </div>
         </div>

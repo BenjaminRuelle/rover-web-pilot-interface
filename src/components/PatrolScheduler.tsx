@@ -74,86 +74,83 @@ const PatrolScheduler: React.FC = () => {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Clock className="w-5 h-5" />
-          Patrol Schedule
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <Label className="text-sm font-medium mb-2 block">Select Date</Label>
-          <Calendar
-            mode="single"
-            selected={selectedDate}
-            onSelect={setSelectedDate}
-            className="rounded-md border pointer-events-auto"
-            modifiers={{
-              scheduled: (date) => hasSchedule(date)
-            }}
-            modifiersStyles={{
-              scheduled: { backgroundColor: '#3b82f6', color: 'white' }
-            }}
-          />
-        </div>
+    <div className="w-full space-y-4">
+      <div className="flex items-center gap-2 mb-4">
+        <Clock className="w-5 h-5 text-white" />
+        <h3 className="text-lg font-semibold text-white">Patrol Schedule</h3>
+      </div>
+      
+      <div>
+        <Label className="text-sm font-medium mb-2 block text-white">Select Date</Label>
+        <Calendar
+          mode="single"
+          selected={selectedDate}
+          onSelect={setSelectedDate}
+          className="rounded-md border border-white/20 bg-black/20 text-white"
+          modifiers={{
+            scheduled: (date) => hasSchedule(date)
+          }}
+          modifiersStyles={{
+            scheduled: { backgroundColor: '#3b82f6', color: 'white' }
+          }}
+        />
+      </div>
 
-        {selectedDate && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-medium">
-                Time Slots for {format(selectedDate, 'PPP')}
-              </Label>
-            </div>
-
-            <div className="space-y-2">
-              {getCurrentTimeSlots().map((slot) => (
-                <div key={slot.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-md">
-                  <span className="text-sm">
-                    {slot.startTime} - {slot.endTime}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeTimeSlot(slot.id)}
-                    className="h-6 w-6 p-0 text-red-500 hover:text-red-700"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-2 p-3 border rounded-md bg-slate-50">
-              <Label className="text-sm font-medium">Add Time Slot</Label>
-              <div className="flex gap-2 items-center">
-                <input
-                  type="time"
-                  value={newTimeSlot.startTime}
-                  onChange={(e) => setNewTimeSlot(prev => ({ ...prev, startTime: e.target.value }))}
-                  className="flex-1 px-2 py-1 border rounded text-sm"
-                />
-                <span className="text-sm text-gray-500">to</span>
-                <input
-                  type="time"
-                  value={newTimeSlot.endTime}
-                  onChange={(e) => setNewTimeSlot(prev => ({ ...prev, endTime: e.target.value }))}
-                  className="flex-1 px-2 py-1 border rounded text-sm"
-                />
-              </div>
-              <Button
-                onClick={addTimeSlot}
-                size="sm"
-                className="w-full"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Slot
-              </Button>
-            </div>
+      {selectedDate && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium text-white">
+              Time Slots for {format(selectedDate, 'PPP')}
+            </Label>
           </div>
-        )}
-      </CardContent>
-    </Card>
+
+          <div className="space-y-2">
+            {getCurrentTimeSlots().map((slot) => (
+              <div key={slot.id} className="flex items-center justify-between p-2 bg-white/10 rounded-md border border-white/20">
+                <span className="text-sm text-white">
+                  {slot.startTime} - {slot.endTime}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeTimeSlot(slot.id)}
+                  className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/20"
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          <div className="space-y-2 p-3 border border-white/20 rounded-md bg-white/5">
+            <Label className="text-sm font-medium text-white">Add Time Slot</Label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="time"
+                value={newTimeSlot.startTime}
+                onChange={(e) => setNewTimeSlot(prev => ({ ...prev, startTime: e.target.value }))}
+                className="flex-1 px-2 py-1 border border-white/20 rounded text-sm bg-black/20 text-white"
+              />
+              <span className="text-sm text-white/70">to</span>
+              <input
+                type="time"
+                value={newTimeSlot.endTime}
+                onChange={(e) => setNewTimeSlot(prev => ({ ...prev, endTime: e.target.value }))}
+                className="flex-1 px-2 py-1 border border-white/20 rounded text-sm bg-black/20 text-white"
+              />
+            </div>
+            <Button
+              onClick={addTimeSlot}
+              size="sm"
+              className="w-full bg-blue-600 hover:bg-blue-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Slot
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

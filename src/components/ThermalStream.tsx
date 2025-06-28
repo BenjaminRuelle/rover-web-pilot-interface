@@ -3,8 +3,8 @@ import React, { useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
 const ThermalStream: React.FC = () => {
-  const [thermalAlarm1, setThermalAlarm1] = useState(true); // Mock alarm state for camera 1
-  const [thermalAlarm2, setThermalAlarm2] = useState(false); // Mock alarm state for camera 2
+  const [thermalAlarm1, setThermalAlarm1] = useState(true); // Mock alarm state for front camera
+  const [thermalAlarm2, setThermalAlarm2] = useState(false); // Mock alarm state for back camera
 
   return (
     <div className="absolute top-20 left-6 bg-black/50 backdrop-blur-md rounded-lg border border-white/20 p-4 w-[500px] z-10">
@@ -27,10 +27,10 @@ const ThermalStream: React.FC = () => {
 
       {/* Two thermal cameras side by side */}
       <div className="grid grid-cols-2 gap-3">
-        {/* Thermal Camera 1 */}
+        {/* Thermal Camera Front */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-white text-xs font-medium">CAMERA 1</span>
+            <span className="text-white text-xs font-medium">FRONT</span>
             <div className={`text-xs px-2 py-1 rounded ${
               thermalAlarm1 
                 ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
@@ -41,12 +41,10 @@ const ThermalStream: React.FC = () => {
           </div>
           <div className="relative rounded-lg overflow-hidden">
             <img
-              src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=300&h=200&fit=crop"
-              alt="Thermal Camera 1 Feed"
+              src="/lovable-uploads/b0466e08-3b13-4c7d-a3a1-e8a5b3af9d19.png"
+              alt="Thermal Camera Front Feed"
               className="w-full h-32 object-cover"
             />
-            {/* Overlay effect to simulate thermal imaging */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-purple-500/20 to-red-500/20 mix-blend-overlay"></div>
             
             {/* Temperature overlay */}
             <div className="absolute top-1 left-1 bg-black/60 rounded px-1 py-0.5">
@@ -59,10 +57,10 @@ const ThermalStream: React.FC = () => {
           </div>
         </div>
 
-        {/* Thermal Camera 2 */}
+        {/* Thermal Camera Back */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-white text-xs font-medium">CAMERA 2</span>
+            <span className="text-white text-xs font-medium">BACK</span>
             <div className={`text-xs px-2 py-1 rounded ${
               thermalAlarm2 
                 ? 'bg-red-500/20 text-red-300 border border-red-500/30' 
@@ -73,12 +71,10 @@ const ThermalStream: React.FC = () => {
           </div>
           <div className="relative rounded-lg overflow-hidden">
             <img
-              src="https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=300&h=200&fit=crop"
-              alt="Thermal Camera 2 Feed"
+              src="/lovable-uploads/99399008-d3ef-418d-b13c-d16a8ca95df0.png"
+              alt="Thermal Camera Back Feed"
               className="w-full h-32 object-cover"
             />
-            {/* Overlay effect to simulate thermal imaging */}
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-green-500/20 to-yellow-500/20 mix-blend-overlay"></div>
             
             {/* Temperature overlay */}
             <div className="absolute top-1 left-1 bg-black/60 rounded px-1 py-0.5">

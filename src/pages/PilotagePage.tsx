@@ -6,7 +6,6 @@ import JoystickOverlay from '@/components/JoystickOverlay';
 import MiniMap from '@/components/MiniMap';
 import MonitorHub from '@/components/MonitorHub';
 import ThermalStream from '@/components/ThermalStream';
-import StandardCamera from '@/components/StandardCamera';
 
 const PilotagePage: React.FC = () => {
   return (
@@ -23,9 +22,6 @@ const PilotagePage: React.FC = () => {
 
       {/* Thermal Stream - always visible, larger size */}
       <ThermalStream />
-
-      {/* Standard Camera - new component */}
-      <StandardCamera />
 
       {/* Joystick overlay with integrated controls - bottom center */}
       <JoystickOverlay />

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Anchor, RotateCcw, RotateCw, Navigation, Square } from 'lucide-react';
@@ -64,16 +63,16 @@ const ControlButtons: React.FC<ControlButtonsProps> = ({ isHovered }) => {
     }`}>
       
       {/* Top Control Row */}
-      <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 flex gap-4">
+      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 flex gap-4">
         <div className="flex flex-col items-center gap-1">
           <Button
-            onClick={handleLeftTurn}
+            onClick={handlePatrol}
             size="sm"
-            className="bg-orange-600/90 hover:bg-orange-500 text-white border border-orange-400/40 shadow-lg"
+            className="bg-green-600/90 hover:bg-green-500 text-white border border-green-400/40 shadow-lg"
           >
-            <RotateCcw className="w-4 h-4" />
+            <Navigation className="w-4 h-4" />
           </Button>
-          <span className="text-xs text-white/70">Turn L</span>
+          <span className="text-xs text-white/70">Patrol</span>
         </div>
         
         <div className="flex flex-col items-center gap-1">
@@ -89,33 +88,6 @@ const ControlButtons: React.FC<ControlButtonsProps> = ({ isHovered }) => {
         
         <div className="flex flex-col items-center gap-1">
           <Button
-            onClick={handleRightTurn}
-            size="sm"
-            className="bg-orange-600/90 hover:bg-orange-500 text-white border border-orange-400/40 shadow-lg"
-          >
-            <RotateCw className="w-4 h-4" />
-          </Button>
-          <span className="text-xs text-white/70">Turn R</span>
-        </div>
-      </div>
-
-      {/* Side Control Buttons */}
-      <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
-        <div className="flex flex-col items-center gap-1">
-          <Button
-            onClick={handlePatrol}
-            size="sm"
-            className="bg-green-600/90 hover:bg-green-500 text-white border border-green-400/40 shadow-lg"
-          >
-            <Navigation className="w-4 h-4" />
-          </Button>
-          <span className="text-xs text-white/70">Patrol</span>
-        </div>
-      </div>
-      
-      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-        <div className="flex flex-col items-center gap-1">
-          <Button
             onClick={handleStopPatrol}
             size="sm"
             className="bg-red-600/90 hover:bg-red-500 text-white border border-red-400/40 shadow-lg"
@@ -123,6 +95,33 @@ const ControlButtons: React.FC<ControlButtonsProps> = ({ isHovered }) => {
             <Square className="w-4 h-4" />
           </Button>
           <span className="text-xs text-white/70">Stop</span>
+        </div>
+      </div>
+
+      {/* Side Control Buttons */}
+      <div className="absolute left-4 top-1/2 transform -translate-y-1/2">
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            onClick={handleLeftTurn}
+            size="sm"
+            className="bg-orange-600/90 hover:bg-orange-500 text-white border border-orange-400/40 shadow-lg"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </Button>
+          <span className="text-xs text-white/70">Turn L</span>
+        </div>
+      </div>
+      
+      <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+        <div className="flex flex-col items-center gap-1">
+          <Button
+            onClick={handleRightTurn}
+            size="sm"
+            className="bg-orange-600/90 hover:bg-orange-500 text-white border border-orange-400/40 shadow-lg"
+          >
+            <RotateCw className="w-4 h-4" />
+          </Button>
+          <span className="text-xs text-white/70">Turn R</span>
         </div>
       </div>
 

@@ -7,31 +7,13 @@ interface RobotPose {
   orientation: { x: number; y: number; z: number; w: number };
 }
 
-interface OccupancyGrid {
-  info: {
-    resolution: number;
-    width: number;
-    height: number;
-    origin: {
-      position: { x: number; y: number; z: number };
-      orientation: { x: number; y: number; z: number; w: number };
-    };
-  };
-  data: number[];
-}
-
 const MiniMap: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
-  const [map, setMap] = useState<OccupancyGrid | null>(null);
   const { isConnected, subscribe } = useWebSocket();
 
-  // Subscribe to ROS2 topics
+  // Subscribe to robot pose only
   useEffect(() => {
-    const unsubscribeMap = subscribe('/map', 'nav_msgs/msg/OccupancyGrid', (data: OccupancyGrid) => {
-      setMap(data);
-    });
-
     const unsubscribePose = subscribe('/amcl_pose', 'geometry_msgs/msg/PoseWithCovarianceStamped', (data: any) => {
       if (data.pose && data.pose.pose) {
         setRobotPose(data.pose.pose);
@@ -39,7 +21,6 @@ const MiniMap: React.FC = () => {
     });
 
     return () => {
-      unsubscribeMap();
       unsubscribePose();
     };
   }, [subscribe]);
@@ -48,20 +29,13 @@ const MiniMap: React.FC = () => {
     return Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
   }, []);
 
-  const worldToPixel = useCallback((worldX: number, worldY: number, mapInfo: any, scale: number) => {
-    const pixelX = Math.floor((worldX - mapInfo.origin.position.x) / mapInfo.resolution) * scale;
-    const pixelY = Math.floor((worldY - mapInfo.origin.position.y) / mapInfo.resolution) * scale;
-    return { x: pixelX, y: mapInfo.height * scale - pixelY };
-  }, []);
-
   const drawMiniMap = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !map) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const scale = 0.3; // Mini scale for the minimap
     canvas.width = 200;
     canvas.height = 200;
 
@@ -69,77 +43,46 @@ const MiniMap: React.FC = () => {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Calculate center for robot following
-    let centerX = canvas.width / 2;
-    let centerY = canvas.height / 2;
+    // Load and draw the static map image
+    const mapImage = new Image();
+    mapImage.onload = () => {
+      // Draw the map image scaled to fit the canvas
+      ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
 
-    if (robotPose) {
-      const robotPixel = worldToPixel(robotPose.position.x, robotPose.position.y, map.info, scale);
-      centerX = canvas.width / 2 - robotPixel.x;
-      centerY = canvas.height / 2 - robotPixel.y;
-    }
+      // Draw robot if position is available
+      if (robotPose) {
+        // Convert world coordinates to canvas coordinates (simplified mapping)
+        // This is a basic conversion - you may need to adjust based on your coordinate system
+        const robotX = canvas.width / 2 + robotPose.position.x * 10; // Scale factor of 10
+        const robotY = canvas.height / 2 - robotPose.position.y * 10; // Invert Y axis
+        const robotYaw = quaternionToYaw(robotPose.orientation);
 
-    // Draw occupancy grid
-    const imageData = ctx.createImageData(Math.floor(map.info.width * scale), Math.floor(map.info.height * scale));
-    
-    for (let y = 0; y < Math.floor(map.info.height * scale); y++) {
-      for (let x = 0; x < Math.floor(map.info.width * scale); x++) {
-        const origX = Math.floor(x / scale);
-        const origY = Math.floor(y / scale);
-        const origIndex = origY * map.info.width + origX;
-        
-        if (origIndex < map.data.length) {
-          const value = map.data[origIndex];
-          let color = 128;
-          
-          if (value === 0) color = 255;
-          else if (value === 100) color = 0;
-          
-          const pixelIndex = (y * Math.floor(map.info.width * scale) + x) * 4;
-          imageData.data[pixelIndex] = color;
-          imageData.data[pixelIndex + 1] = color;
-          imageData.data[pixelIndex + 2] = color;
-          imageData.data[pixelIndex + 3] = 255;
+        // Ensure robot is within canvas bounds
+        if (robotX >= 0 && robotX <= canvas.width && robotY >= 0 && robotY <= canvas.height) {
+          // Robot body
+          ctx.fillStyle = '#00ff00';
+          ctx.beginPath();
+          ctx.arc(robotX, robotY, 4, 0, 2 * Math.PI);
+          ctx.fill();
+
+          // Robot direction
+          ctx.strokeStyle = '#00ff00';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(robotX, robotY);
+          ctx.lineTo(robotX + Math.cos(robotYaw) * 8, robotY + Math.sin(robotYaw) * 8);
+          ctx.stroke();
         }
       }
-    }
 
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = Math.floor(map.info.width * scale);
-    tempCanvas.height = Math.floor(map.info.height * scale);
-    const tempCtx = tempCanvas.getContext('2d');
-    if (tempCtx) {
-      tempCtx.putImageData(imageData, 0, 0);
-      ctx.drawImage(tempCanvas, centerX, centerY);
-    }
-
-    // Draw robot
-    if (robotPose) {
-      const robotPixel = worldToPixel(robotPose.position.x, robotPose.position.y, map.info, scale);
-      const robotX = centerX + robotPixel.x;
-      const robotY = centerY + robotPixel.y;
-      const robotYaw = quaternionToYaw(robotPose.orientation);
-
-      // Robot body
-      ctx.fillStyle = '#00ff00';
-      ctx.beginPath();
-      ctx.arc(robotX, robotY, 4, 0, 2 * Math.PI);
-      ctx.fill();
-
-      // Robot direction
-      ctx.strokeStyle = '#00ff00';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(robotX, robotY);
-      ctx.lineTo(robotX + Math.cos(robotYaw) * 8, robotY + Math.sin(robotYaw) * 8);
-      ctx.stroke();
-    }
-
-    // Draw border
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(0, 0, canvas.width, canvas.height);
-  }, [map, robotPose, worldToPixel, quaternionToYaw]);
+      // Draw border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0, 0, canvas.width, canvas.height);
+    };
+    
+    mapImage.src = '/lovable-uploads/e0784714-beed-409d-8760-417979b44c80.png';
+  }, [robotPose, quaternionToYaw]);
 
   useEffect(() => {
     drawMiniMap();

@@ -4,7 +4,6 @@ import Navbar from '@/components/Navbar';
 import VideoStream from '@/components/VideoStream';
 import JoystickOverlay from '@/components/JoystickOverlay';
 import MiniMap from '@/components/MiniMap';
-import CockpitControls from '@/components/CockpitControls';
 import { useWebSocket } from '@/hooks/useWebSocket';
 
 const PilotagePage: React.FC = () => {
@@ -36,10 +35,7 @@ const PilotagePage: React.FC = () => {
       {/* Mini map - top right */}
       <MiniMap />
 
-      {/* Control buttons - bottom left */}
-      <CockpitControls />
-
-      {/* Joystick overlay - bottom center */}
+      {/* Joystick overlay with integrated controls - bottom center */}
       <JoystickOverlay />
 
       {/* System info overlay - bottom right */}

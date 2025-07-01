@@ -14,7 +14,7 @@ const PilotagePage: React.FC = () => {
       
       {/* Main video stream - full screen background */}
       <div className="absolute inset-0">
-        <VideoStream streamUrl="rtsp://192.168.1.100:554/stream1" />
+        <VideoStream />
       </div>
 
       {/* Mini map - top right */}

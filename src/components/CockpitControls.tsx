@@ -8,24 +8,15 @@ const CockpitControls: React.FC = () => {
   const { publish } = useWebSocket();
 
   const handleDocking = () => {
-    // Publier un message pour initier le docking
-    publish('/docking_command', 'std_msgs/msg/String', { data: 'start_docking' });
+    publish('/do_docking', 'std_srvs/srv/Trigger', {});
   };
 
   const handlePatrol = () => {
-    // Publier un message pour démarrer la patrouille
-    publish('/patrol_command', 'std_msgs/msg/String', { data: 'start_patrol' });
+    publish('/do_patrol', 'std_srvs/srv/Trigger', {});
   };
 
   const handleStopPatrol = () => {
-    // Publier un message pour arrêter la patrouille
-    publish('/patrol_command', 'std_msgs/msg/String', { data: 'stop_patrol' });
-    // Aussi arrêter le mouvement
-    const stopMsg = {
-      linear: { x: 0, y: 0, z: 0 },
-      angular: { x: 0, y: 0, z: 0 }
-    };
-    publish('/cmd_vel', 'geometry_msgs/msg/Twist', stopMsg);
+    publish('/stop_patrol', 'std_srvs/srv/Trigger', {});
   };
 
   return (

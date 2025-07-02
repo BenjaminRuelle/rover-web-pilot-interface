@@ -1,17 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { PatrolTool } from './PatrolToolbar';
-
-interface Point {
-  x: number;
-  y: number;
-  id: string;
-}
-
-interface KeepoutZone {
-  id: string;
-  points: Point[];
-  completed: boolean;
-}
+import { useMapService, Point, KeepoutZone } from '@/hooks/useMapService';
 
 interface PatrolMapProps {
   activeTool: PatrolTool;
@@ -21,54 +10,18 @@ interface PatrolMapProps {
 
 const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [waypoints, setWaypoints] = useState<Point[]>([]);
-  const [keepoutZones, setKeepoutZones] = useState<KeepoutZone[]>([]);
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [activeZone, setActiveZone] = useState<string | null>(null);
-
-  // Load the uploaded map image
-  const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
-  const [mapScale, setMapScale] = useState(1);
-  const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => {
-      setMapImage(img);
-      // Calculate scale to fit the map in canvas while maintaining aspect ratio
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const canvasAspect = canvas.offsetWidth / canvas.offsetHeight;
-        const imageAspect = img.width / img.height;
-        
-        let scale: number;
-        let offsetX = 0;
-        let offsetY = 0;
-        
-        if (imageAspect > canvasAspect) {
-          // Image is wider, fit to width
-          scale = canvas.offsetWidth / img.width;
-          offsetY = (canvas.offsetHeight - img.height * scale) / 2;
-        } else {
-          // Image is taller, fit to height
-          scale = canvas.offsetHeight / img.height;
-          offsetX = (canvas.offsetWidth - img.width * scale) / 2;
-        }
-        
-        setMapScale(scale);
-        setMapOffset({ x: offsetX, y: offsetY });
-      }
-    };
-    img.src = '/lovable-uploads/e0784714-beed-409d-8760-417979b44c80.png';
-  }, []);
+  
+  const { mapData, waypoints, keepoutZones, setWaypoints, setKeepoutZones, worldToMap, mapToWorld } = useMapService();
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   const drawMap = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !mapImage) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -81,14 +34,40 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     ctx.fillStyle = '#0f172a';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw the map image with proper scaling and centering
-    ctx.drawImage(
-      mapImage, 
-      mapOffset.x, 
-      mapOffset.y, 
-      mapImage.width * mapScale, 
-      mapImage.height * mapScale
-    );
+    // Draw the map if available
+    if (mapData) {
+      const imageData = ctx.createImageData(canvas.width, canvas.height);
+      const scaleX = mapData.width / canvas.width;
+      const scaleY = mapData.height / canvas.height;
+
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const mapX = Math.floor(x * scaleX);
+          const mapY = Math.floor(y * scaleY);
+          const mapIndex = mapY * mapData.width + mapX;
+          const value = mapData.data[mapIndex];
+
+          let r, g, b;
+          if (value === -1) {
+            // Unknown space - gray
+            r = g = b = 64;
+          } else if (value === 0) {
+            // Free space - light gray
+            r = g = b = 200;
+          } else {
+            // Occupied space - dark
+            r = g = b = 30;
+          }
+
+          const pixelIndex = (y * canvas.width + x) * 4;
+          imageData.data[pixelIndex] = r;
+          imageData.data[pixelIndex + 1] = g;
+          imageData.data[pixelIndex + 2] = b;
+          imageData.data[pixelIndex + 3] = 255;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
 
     // Draw keepout zones
     keepoutZones.forEach(zone => {
@@ -98,10 +77,16 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
         ctx.lineWidth = 2;
         
         ctx.beginPath();
-        ctx.moveTo(zone.points[0].x, zone.points[0].y);
+        const firstMapPoint = worldToMap(zone.points[0].x, zone.points[0].y);
+        const firstX = (firstMapPoint.x / (mapData?.width || 1)) * canvas.width;
+        const firstY = (firstMapPoint.y / (mapData?.height || 1)) * canvas.height;
+        ctx.moveTo(firstX, firstY);
         
         for (let i = 1; i < zone.points.length; i++) {
-          ctx.lineTo(zone.points[i].x, zone.points[i].y);
+          const mapPoint = worldToMap(zone.points[i].x, zone.points[i].y);
+          const x = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
+          const y = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+          ctx.lineTo(x, y);
         }
         
         if (zone.completed) {
@@ -112,9 +97,13 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
 
         // Draw zone points
         zone.points.forEach(point => {
+          const mapPoint = worldToMap(point.x, point.y);
+          const x = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
+          const y = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+          
           ctx.fillStyle = '#ff0000';
           ctx.beginPath();
-          ctx.arc(point.x, point.y, 4, 0, 2 * Math.PI);
+          ctx.arc(x, y, 4, 0, 2 * Math.PI);
           ctx.fill();
         });
       }
@@ -123,13 +112,16 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     // Draw waypoints
     waypoints.forEach((point, index) => {
       const isSelected = selectedPoint === point.id;
+      const mapPoint = worldToMap(point.x, point.y);
+      const x = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
+      const y = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
       
       // Draw waypoint circle
       ctx.fillStyle = isSelected ? '#60a5fa' : '#3b82f6';
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(point.x, point.y, 12, 0, 2 * Math.PI);
+      ctx.arc(x, y, 12, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
 
@@ -138,7 +130,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
       ctx.font = '12px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText((index + 1).toString(), point.x, point.y);
+      ctx.fillText((index + 1).toString(), x, y);
     });
 
     // Draw path between waypoints
@@ -147,31 +139,60 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 5]);
       ctx.beginPath();
-      ctx.moveTo(waypoints[0].x, waypoints[0].y);
+      
+      const firstMapPoint = worldToMap(waypoints[0].x, waypoints[0].y);
+      const firstX = (firstMapPoint.x / (mapData?.width || 1)) * canvas.width;
+      const firstY = (firstMapPoint.y / (mapData?.height || 1)) * canvas.height;
+      ctx.moveTo(firstX, firstY);
       
       for (let i = 1; i < waypoints.length; i++) {
-        ctx.lineTo(waypoints[i].x, waypoints[i].y);
+        const mapPoint = worldToMap(waypoints[i].x, waypoints[i].y);
+        const x = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
+        const y = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+        ctx.lineTo(x, y);
       }
       ctx.stroke();
       ctx.setLineDash([]);
     }
-  }, [mapImage, mapScale, mapOffset, waypoints, keepoutZones, selectedPoint]);
+  }, [mapData, waypoints, keepoutZones, selectedPoint, worldToMap]);
 
   useEffect(() => {
     drawMap();
   }, [drawMap]);
 
+  const canvasToWorld = useCallback((canvasX: number, canvasY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas || !mapData) return { x: 0, y: 0 };
+    
+    const mapX = (canvasX / canvas.width) * mapData.width;
+    const mapY = (canvasY / canvas.height) * mapData.height;
+    
+    return mapToWorld(mapX, mapY);
+  }, [mapData, mapToWorld]);
+
   const getClickedPoint = (x: number, y: number): string | null => {
     // Check waypoints
     for (const point of waypoints) {
-      const distance = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+      const mapPoint = worldToMap(point.x, point.y);
+      const canvas = canvasRef.current;
+      if (!canvas) continue;
+      
+      const canvasX = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
+      const canvasY = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+      const distance = Math.sqrt((x - canvasX) ** 2 + (y - canvasY) ** 2);
       if (distance <= 12) return point.id;
     }
 
     // Check keepout zone points
     for (const zone of keepoutZones) {
       for (const point of zone.points) {
-        const distance = Math.sqrt((x - point.x) ** 2 + (y - point.y) ** 2);
+        const mapPoint = worldToMap(point.x, point.y);
+        const canvas = canvasRef.current;
+        if (!canvas) continue;
+        
+        const canvasX = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
+        const canvasY = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+        const distance = Math.sqrt((x - canvasX) ** 2 + (y - canvasY) ** 2);
         if (distance <= 8) return point.id;
       }
     }
@@ -188,28 +209,30 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     const y = e.clientY - rect.top;
 
     if (activeTool === 'waypoint') {
+      const worldPos = canvasToWorld(x, y);
       const newWaypoint: Point = {
-        x,
-        y,
+        x: worldPos.x,
+        y: worldPos.y,
         id: generateId()
       };
-      setWaypoints(prev => [...prev, newWaypoint]);
+      setWaypoints([...waypoints, newWaypoint]);
     } else if (activeTool === 'keepout') {
+      const worldPos = canvasToWorld(x, y);
       if (activeZone) {
         // Add point to active zone
-        setKeepoutZones(prev => prev.map(zone => 
+        setKeepoutZones(keepoutZones.map(zone => 
           zone.id === activeZone 
-            ? { ...zone, points: [...zone.points, { x, y, id: generateId() }] }
+            ? { ...zone, points: [...zone.points, { x: worldPos.x, y: worldPos.y, id: generateId() }] }
             : zone
         ));
       } else {
         // Start new zone
         const newZone: KeepoutZone = {
           id: generateId(),
-          points: [{ x, y, id: generateId() }],
+          points: [{ x: worldPos.x, y: worldPos.y, id: generateId() }],
           completed: false
         };
-        setKeepoutZones(prev => [...prev, newZone]);
+        setKeepoutZones([...keepoutZones, newZone]);
         setActiveZone(newZone.id);
       }
     } else if (activeTool === 'select') {
@@ -221,7 +244,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   const handleCanvasDoubleClick = () => {
     if (activeTool === 'keepout' && activeZone) {
       // Complete the current zone
-      setKeepoutZones(prev => prev.map(zone => 
+      setKeepoutZones(keepoutZones.map(zone => 
         zone.id === activeZone 
           ? { ...zone, completed: true }
           : zone
@@ -247,7 +270,10 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
       
       const point = waypoints.find(p => p.id === clickedPoint);
       if (point) {
-        setDragOffset({ x: x - point.x, y: y - point.y });
+        const mapPoint = worldToMap(point.x, point.y);
+        const canvasX = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
+        const canvasY = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+        setDragOffset({ x: x - canvasX, y: y - canvasY });
       }
     }
   };
@@ -259,12 +285,14 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left - dragOffset.x;
-    const y = e.clientY - rect.top - dragOffset.y;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const worldPos = canvasToWorld(x - dragOffset.x, y - dragOffset.y);
 
     setWaypoints(prev => prev.map(point => 
       point.id === selectedPoint 
-        ? { ...point, x, y }
+        ? { ...point, x: worldPos.x, y: worldPos.y }
         : point
     ));
   };
@@ -299,7 +327,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
 
   const handleDelete = () => {
     if (selectedPoint) {
-      setWaypoints(prev => prev.filter(point => point.id !== selectedPoint));
+      setWaypoints(waypoints.filter(point => point.id !== selectedPoint));
       setSelectedPoint(null);
     }
   };
@@ -334,7 +362,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
         {activeTool === 'select' && (
           <div>
             <div className="font-medium mb-1">Select Tool</div>
-            <div className="text-xs text-white/70">Click and drag waypoints to move them. Press Delete to remove selected point.</div>
+            <div className="text-xs text-white/70">Click waypoints to select them. Press Delete to remove selected point.</div>
           </div>
         )}
         {activeTool === 'waypoint' && (
@@ -357,6 +385,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
           <div>Waypoints: {waypoints.length}</div>
           <div>Keepout Zones: {keepoutZones.filter(z => z.completed).length}</div>
           {selectedPoint && <div className="text-blue-400">Point selected</div>}
+          {mapData && <div className="text-green-400">Map loaded</div>}
         </div>
       </div>
     </div>

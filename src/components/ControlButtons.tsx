@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Anchor, RotateCcw, RotateCw, Navigation, Square } from 'lucide-react';
@@ -11,20 +12,15 @@ const ControlButtons: React.FC<ControlButtonsProps> = ({ isHovered }) => {
   const { publish } = useWebSocket();
 
   const handleDocking = () => {
-    publish('/docking_command', 'std_msgs/msg/String', { data: 'start_docking' });
+    publish('/do_docking', 'std_srvs/srv/Trigger', {});
   };
 
   const handlePatrol = () => {
-    publish('/patrol_command', 'std_msgs/msg/String', { data: 'start_patrol' });
+    publish('/do_patrol', 'std_srvs/srv/Trigger', {});
   };
 
   const handleStopPatrol = () => {
-    publish('/patrol_command', 'std_msgs/msg/String', { data: 'stop_patrol' });
-    const stopMsg = {
-      linear: { x: 0, y: 0, z: 0 },
-      angular: { x: 0, y: 0, z: 0 }
-    };
-    publish('/cmd_vel', 'geometry_msgs/msg/Twist', stopMsg);
+    publish('/stop_patrol', 'std_srvs/srv/Trigger', {});
   };
 
   const handleLeftTurn = () => {

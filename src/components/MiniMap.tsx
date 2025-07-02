@@ -1,6 +1,6 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
+import { useMapService } from '@/hooks/useMapService';
 
 interface RobotPose {
   position: { x: number; y: number; z: number };
@@ -10,35 +10,9 @@ interface RobotPose {
 const MiniMap: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
-  const [mapImage, setMapImage] = useState<HTMLImageElement | null>(null);
-  const [mapDimensions, setMapDimensions] = useState({ width: 0, height: 0 });
+  const [mapDimensions, setMapDimensions] = useState({ width: 200, height: 200 });
   const { isConnected, subscribe } = useWebSocket();
-
-  // Load map image and calculate dimensions
-  useEffect(() => {
-    const img = new Image();
-    img.onload = () => {
-      setMapImage(img);
-      // Calculate dimensions while maintaining aspect ratio
-      const maxWidth = 200;
-      const maxHeight = 200;
-      const aspectRatio = img.width / img.height;
-      
-      let width, height;
-      if (aspectRatio > 1) {
-        // Image is wider than tall
-        width = maxWidth;
-        height = maxWidth / aspectRatio;
-      } else {
-        // Image is taller than wide
-        height = maxHeight;
-        width = maxHeight * aspectRatio;
-      }
-      
-      setMapDimensions({ width: Math.round(width), height: Math.round(height) });
-    };
-    img.src = '/lovable-uploads/e0784714-beed-409d-8760-417979b44c80.png';
-  }, []);
+  const { mapData, waypoints, keepoutZones, worldToMap } = useMapService();
 
   // Subscribe to robot pose
   useEffect(() => {
@@ -59,12 +33,12 @@ const MiniMap: React.FC = () => {
 
   const drawMiniMap = useCallback(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !mapImage || mapDimensions.width === 0) return;
+    if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size to match calculated dimensions
+    // Set canvas size
     canvas.width = mapDimensions.width;
     canvas.height = mapDimensions.height;
 
@@ -72,18 +46,119 @@ const MiniMap: React.FC = () => {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw the map image maintaining aspect ratio
-    ctx.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
+    // Draw map if available
+    if (mapData) {
+      const imageData = ctx.createImageData(canvas.width, canvas.height);
+      const scaleX = mapData.width / canvas.width;
+      const scaleY = mapData.height / canvas.height;
+
+      for (let y = 0; y < canvas.height; y++) {
+        for (let x = 0; x < canvas.width; x++) {
+          const mapX = Math.floor(x * scaleX);
+          const mapY = Math.floor(y * scaleY);
+          const mapIndex = mapY * mapData.width + mapX;
+          const value = mapData.data[mapIndex];
+
+          let r, g, b;
+          if (value === -1) {
+            // Unknown space - gray
+            r = g = b = 128;
+          } else if (value === 0) {
+            // Free space - white
+            r = g = b = 255;
+          } else {
+            // Occupied space - black
+            r = g = b = 0;
+          }
+
+          const pixelIndex = (y * canvas.width + x) * 4;
+          imageData.data[pixelIndex] = r;
+          imageData.data[pixelIndex + 1] = g;
+          imageData.data[pixelIndex + 2] = b;
+          imageData.data[pixelIndex + 3] = 255;
+        }
+      }
+      ctx.putImageData(imageData, 0, 0);
+    }
+
+    // Draw keepout zones
+    keepoutZones.forEach(zone => {
+      if (zone.points.length > 0 && zone.completed) {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        const firstPoint = worldToMap(zone.points[0].x, zone.points[0].y);
+        const scaledFirstX = (firstPoint.x / (mapData?.width || 1)) * canvas.width;
+        const scaledFirstY = (firstPoint.y / (mapData?.height || 1)) * canvas.height;
+        ctx.moveTo(scaledFirstX, scaledFirstY);
+        
+        for (let i = 1; i < zone.points.length; i++) {
+          const point = worldToMap(zone.points[i].x, zone.points[i].y);
+          const scaledX = (point.x / (mapData?.width || 1)) * canvas.width;
+          const scaledY = (point.y / (mapData?.height || 1)) * canvas.height;
+          ctx.lineTo(scaledX, scaledY);
+        }
+        
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+    });
+
+    // Draw waypoints
+    waypoints.forEach((waypoint, index) => {
+      const mapPoint = worldToMap(waypoint.x, waypoint.y);
+      const scaledX = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
+      const scaledY = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+      
+      // Draw waypoint circle
+      ctx.fillStyle = '#3b82f6';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(scaledX, scaledY, 3, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+
+      // Draw waypoint number
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '8px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText((index + 1).toString(), scaledX, scaledY);
+    });
+
+    // Draw waypoint path
+    if (waypoints.length > 1) {
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      
+      const firstWaypoint = worldToMap(waypoints[0].x, waypoints[0].y);
+      const scaledFirstX = (firstWaypoint.x / (mapData?.width || 1)) * canvas.width;
+      const scaledFirstY = (firstWaypoint.y / (mapData?.height || 1)) * canvas.height;
+      ctx.moveTo(scaledFirstX, scaledFirstY);
+      
+      for (let i = 1; i < waypoints.length; i++) {
+        const waypoint = worldToMap(waypoints[i].x, waypoints[i].y);
+        const scaledX = (waypoint.x / (mapData?.width || 1)) * canvas.width;
+        const scaledY = (waypoint.y / (mapData?.height || 1)) * canvas.height;
+        ctx.lineTo(scaledX, scaledY);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
 
     // Draw robot if position is available
     if (robotPose) {
-      // Convert world coordinates to canvas coordinates
-      // Assuming the map represents a coordinate system where (0,0) is at the center
-      const robotX = canvas.width / 2 + robotPose.position.x * 10; // Scale factor of 10
-      const robotY = canvas.height / 2 - robotPose.position.y * 10; // Invert Y axis for screen coordinates
+      const robotMapPos = worldToMap(robotPose.position.x, robotPose.position.y);
+      const robotX = (robotMapPos.x / (mapData?.width || 1)) * canvas.width;
+      const robotY = (robotMapPos.y / (mapData?.height || 1)) * canvas.height;
       const robotYaw = quaternionToYaw(robotPose.orientation);
 
-      // Always draw robot, even if outside bounds (for debugging)
       // Robot body (green circle)
       ctx.fillStyle = '#00ff00';
       ctx.strokeStyle = '#ffffff';
@@ -98,7 +173,7 @@ const MiniMap: React.FC = () => {
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(robotX, robotY);
-      ctx.lineTo(robotX + Math.cos(robotYaw) * 8, robotY - Math.sin(robotYaw) * 8); // Invert Y for direction
+      ctx.lineTo(robotX + Math.cos(robotYaw) * 8, robotY - Math.sin(robotYaw) * 8);
       ctx.stroke();
     } else {
       // Show a demo robot position in the center when no real data is available
@@ -127,7 +202,7 @@ const MiniMap: React.FC = () => {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
     ctx.lineWidth = 1;
     ctx.strokeRect(0, 0, canvas.width, canvas.height);
-  }, [mapImage, mapDimensions, robotPose, quaternionToYaw]);
+  }, [mapData, mapDimensions, robotPose, quaternionToYaw, waypoints, keepoutZones, worldToMap]);
 
   useEffect(() => {
     drawMiniMap();
@@ -153,6 +228,10 @@ const MiniMap: React.FC = () => {
           <div>Y: {robotPose.position.y.toFixed(1)}m</div>
         </div>
       )}
+      <div className="mt-1 text-xs text-white/50">
+        <div>Waypoints: {waypoints.length}</div>
+        <div>Zones: {keepoutZones.filter(z => z.completed).length}</div>
+      </div>
     </div>
   );
 };

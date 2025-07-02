@@ -176,16 +176,33 @@ export const useMapService = (): MapService => {
         rootObject: viewer.scene
       });
 
-      // Scale and center the canvas to fit the map
+      // Scale and center the canvas to fit the map while maintaining aspect ratio
       gridClient.on('change', () => {
         console.log('ROS2D Map: Map data received:', gridClient.currentGrid);
-        viewer.scaleToDimensions(
-          gridClient.currentGrid.width,
-          gridClient.currentGrid.height
-        );
+        
+        const mapWidth = gridClient.currentGrid.width;
+        const mapHeight = gridClient.currentGrid.height;
+        const mapAspectRatio = mapWidth / mapHeight;
+        const containerAspectRatio = width / height;
+        
+        let scaleX, scaleY;
+        
+        if (mapAspectRatio > containerAspectRatio) {
+          // Map is wider relative to container - fit to width
+          scaleX = scaleY = width / mapWidth;
+        } else {
+          // Map is taller relative to container - fit to height
+          scaleX = scaleY = height / mapHeight;
+        }
+        
+        viewer.scene.scaleX = scaleX;
+        viewer.scene.scaleY = scaleY;
+        
         // Center the map in the viewer
-        viewer.scene.x = (width - gridClient.currentGrid.width * viewer.scene.scaleX) / 2;
-        viewer.scene.y = (height - gridClient.currentGrid.height * viewer.scene.scaleY) / 2;
+        const scaledMapWidth = mapWidth * scaleX;
+        const scaledMapHeight = mapHeight * scaleY;
+        viewer.scene.x = (width - scaledMapWidth) / 2;
+        viewer.scene.y = (height - scaledMapHeight) / 2;
       });
 
       const mapService = {

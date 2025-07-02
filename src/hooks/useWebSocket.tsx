@@ -4,8 +4,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 interface ROSMessage {
   op: string;
   topic?: string;
+  service?: string;
   type?: string;
   msg?: any;
+  args?: any;
   id?: string;
 }
 
@@ -14,6 +16,7 @@ interface UseWebSocketReturn {
   sendMessage: (message: ROSMessage) => void;
   subscribe: (topic: string, type: string, callback: (data: any) => void) => () => void;
   publish: (topic: string, type: string, message: any) => void;
+  callService: (service: string, type: string, request?: any) => Promise<any>;
 }
 
 export const useWebSocket = (url: string = 'ws://localhost:9090'): UseWebSocketReturn => {
@@ -106,10 +109,53 @@ export const useWebSocket = (url: string = 'ws://localhost:9090'): UseWebSocketR
     sendMessage(publishMessage);
   }, [sendMessage]);
 
+  const callService = useCallback((service: string, type: string, request: any = {}) => {
+    return new Promise((resolve, reject) => {
+      const callId = `call_service_${messageId.current++}`;
+      const serviceMessage: ROSMessage = {
+        op: 'call_service',
+        id: callId,
+        service,
+        type,
+        args: request
+      };
+      
+      const handleResponse = (event: MessageEvent) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.op === 'service_response' && data.id === callId) {
+            ws.current?.removeEventListener('message', handleResponse);
+            if (data.result) {
+              resolve(data.values);
+            } else {
+              reject(new Error(data.values || 'Service call failed'));
+            }
+          }
+        } catch (error) {
+          // Ignore parsing errors for other messages
+        }
+      };
+      
+      if (ws.current) {
+        ws.current.addEventListener('message', handleResponse);
+        sendMessage(serviceMessage);
+        
+        // Timeout after 5 seconds
+        setTimeout(() => {
+          ws.current?.removeEventListener('message', handleResponse);
+          reject(new Error('Service call timeout'));
+        }, 5000);
+      } else {
+        reject(new Error('WebSocket not connected'));
+      }
+    });
+  }, [sendMessage]);
+
   return {
     isConnected,
     sendMessage,
     subscribe,
-    publish
+    publish,
+    callService
   };
 };

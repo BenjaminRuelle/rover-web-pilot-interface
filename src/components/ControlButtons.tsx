@@ -9,18 +9,33 @@ interface ControlButtonsProps {
 }
 
 const ControlButtons: React.FC<ControlButtonsProps> = ({ isHovered }) => {
-  const { publish } = useWebSocket();
+  const { publish, callService } = useWebSocket();
 
-  const handleDocking = () => {
-    publish('/do_docking', 'std_srvs/srv/Trigger', {});
+  const handleDocking = async () => {
+    try {
+      await callService('/do_docking', 'std_srvs/srv/Trigger');
+      console.log('Docking service called successfully');
+    } catch (error) {
+      console.error('Failed to call docking service:', error);
+    }
   };
 
-  const handlePatrol = () => {
-    publish('/do_patrol', 'std_srvs/srv/Trigger', {});
+  const handlePatrol = async () => {
+    try {
+      await callService('/do_patrol', 'std_srvs/srv/Trigger');
+      console.log('Patrol service called successfully');
+    } catch (error) {
+      console.error('Failed to call patrol service:', error);
+    }
   };
 
-  const handleStopPatrol = () => {
-    publish('/stop_patrol', 'std_srvs/srv/Trigger', {});
+  const handleStopPatrol = async () => {
+    try {
+      await callService('/stop_patrol', 'std_srvs/srv/Trigger');
+      console.log('Stop patrol service called successfully');
+    } catch (error) {
+      console.error('Failed to call stop patrol service:', error);
+    }
   };
 
   const handleLeftTurn = () => {

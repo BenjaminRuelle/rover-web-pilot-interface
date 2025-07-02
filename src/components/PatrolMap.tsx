@@ -9,65 +9,44 @@ interface PatrolMapProps {
 }
 
 const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const [selectedPoint, setSelectedPoint] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [activeZone, setActiveZone] = useState<string | null>(null);
   
-  const { mapData, waypoints, keepoutZones, setWaypoints, setKeepoutZones, worldToMap, mapToWorld } = useMapService();
+  const { mapData, waypoints, keepoutZones, setWaypoints, setKeepoutZones, worldToMap, mapToWorld, initializeROS2DMap, ros2dMapService } = useMapService();
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
-  const drawMap = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // Initialize ROS2D map
+  useEffect(() => {
+    if (!ros2dMapService) {
+      initializeROS2DMap('patrol-map-container', 800, 600);
+    }
+  }, [initializeROS2DMap, ros2dMapService]);
+
+  const drawOverlay = useCallback(() => {
+    const canvas = overlayCanvasRef.current;
+    const container = mapContainerRef.current;
+    if (!canvas || !container) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+    // Set canvas size to match container
+    canvas.width = container.offsetWidth;
+    canvas.height = container.offsetHeight;
 
-    // Clear canvas with dark background
-    ctx.fillStyle = '#0f172a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw the map if available
-    if (mapData) {
-      const imageData = ctx.createImageData(canvas.width, canvas.height);
-      const scaleX = mapData.width / canvas.width;
-      const scaleY = mapData.height / canvas.height;
+    // Get ROS2D viewer bounds for coordinate conversion
+    if (!ros2dMapService?.viewer?.scene) return;
 
-      for (let y = 0; y < canvas.height; y++) {
-        for (let x = 0; x < canvas.width; x++) {
-          const mapX = Math.floor(x * scaleX);
-          const mapY = Math.floor(y * scaleY);
-          const mapIndex = mapY * mapData.width + mapX;
-          const value = mapData.data[mapIndex];
-
-          let r, g, b;
-          if (value === -1) {
-            // Unknown space - gray
-            r = g = b = 64;
-          } else if (value === 0) {
-            // Free space - light gray
-            r = g = b = 200;
-          } else {
-            // Occupied space - dark
-            r = g = b = 30;
-          }
-
-          const pixelIndex = (y * canvas.width + x) * 4;
-          imageData.data[pixelIndex] = r;
-          imageData.data[pixelIndex + 1] = g;
-          imageData.data[pixelIndex + 2] = b;
-          imageData.data[pixelIndex + 3] = 255;
-        }
-      }
-      ctx.putImageData(imageData, 0, 0);
-    }
+    const viewer = ros2dMapService.viewer;
+    const scene = viewer.scene;
 
     // Draw keepout zones
     keepoutZones.forEach(zone => {
@@ -78,14 +57,14 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
         
         ctx.beginPath();
         const firstMapPoint = worldToMap(zone.points[0].x, zone.points[0].y);
-        const firstX = (firstMapPoint.x / (mapData?.width || 1)) * canvas.width;
-        const firstY = (firstMapPoint.y / (mapData?.height || 1)) * canvas.height;
+        const firstX = scene.x + (firstMapPoint.x * scene.scaleX);
+        const firstY = scene.y + (firstMapPoint.y * scene.scaleY);
         ctx.moveTo(firstX, firstY);
         
         for (let i = 1; i < zone.points.length; i++) {
           const mapPoint = worldToMap(zone.points[i].x, zone.points[i].y);
-          const x = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
-          const y = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+          const x = scene.x + (mapPoint.x * scene.scaleX);
+          const y = scene.y + (mapPoint.y * scene.scaleY);
           ctx.lineTo(x, y);
         }
         
@@ -98,8 +77,8 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
         // Draw zone points
         zone.points.forEach(point => {
           const mapPoint = worldToMap(point.x, point.y);
-          const x = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
-          const y = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+          const x = scene.x + (mapPoint.x * scene.scaleX);
+          const y = scene.y + (mapPoint.y * scene.scaleY);
           
           ctx.fillStyle = '#ff0000';
           ctx.beginPath();
@@ -113,8 +92,8 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     waypoints.forEach((point, index) => {
       const isSelected = selectedPoint === point.id;
       const mapPoint = worldToMap(point.x, point.y);
-      const x = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
-      const y = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+      const x = scene.x + (mapPoint.x * scene.scaleX);
+      const y = scene.y + (mapPoint.y * scene.scaleY);
       
       // Draw waypoint circle
       ctx.fillStyle = isSelected ? '#60a5fa' : '#3b82f6';
@@ -141,44 +120,45 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
       ctx.beginPath();
       
       const firstMapPoint = worldToMap(waypoints[0].x, waypoints[0].y);
-      const firstX = (firstMapPoint.x / (mapData?.width || 1)) * canvas.width;
-      const firstY = (firstMapPoint.y / (mapData?.height || 1)) * canvas.height;
+      const firstX = scene.x + (firstMapPoint.x * scene.scaleX);
+      const firstY = scene.y + (firstMapPoint.y * scene.scaleY);
       ctx.moveTo(firstX, firstY);
       
       for (let i = 1; i < waypoints.length; i++) {
         const mapPoint = worldToMap(waypoints[i].x, waypoints[i].y);
-        const x = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
-        const y = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+        const x = scene.x + (mapPoint.x * scene.scaleX);
+        const y = scene.y + (mapPoint.y * scene.scaleY);
         ctx.lineTo(x, y);
       }
       ctx.stroke();
       ctx.setLineDash([]);
     }
-  }, [mapData, waypoints, keepoutZones, selectedPoint, worldToMap]);
+  }, [waypoints, keepoutZones, selectedPoint, worldToMap, ros2dMapService]);
 
   useEffect(() => {
-    drawMap();
-  }, [drawMap]);
+    drawOverlay();
+  }, [drawOverlay]);
 
   const canvasToWorld = useCallback((canvasX: number, canvasY: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas || !mapData) return { x: 0, y: 0 };
+    if (!ros2dMapService?.viewer?.scene || !mapData) return { x: 0, y: 0 };
     
-    const mapX = (canvasX / canvas.width) * mapData.width;
-    const mapY = (canvasY / canvas.height) * mapData.height;
+    const scene = ros2dMapService.viewer.scene;
+    const mapX = (canvasX - scene.x) / scene.scaleX;
+    const mapY = (canvasY - scene.y) / scene.scaleY;
     
     return mapToWorld(mapX, mapY);
-  }, [mapData, mapToWorld]);
+  }, [mapData, mapToWorld, ros2dMapService]);
 
   const getClickedPoint = (x: number, y: number): string | null => {
+    if (!ros2dMapService?.viewer?.scene) return null;
+    
+    const scene = ros2dMapService.viewer.scene;
+    
     // Check waypoints
     for (const point of waypoints) {
       const mapPoint = worldToMap(point.x, point.y);
-      const canvas = canvasRef.current;
-      if (!canvas) continue;
-      
-      const canvasX = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
-      const canvasY = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+      const canvasX = scene.x + (mapPoint.x * scene.scaleX);
+      const canvasY = scene.y + (mapPoint.y * scene.scaleY);
       const distance = Math.sqrt((x - canvasX) ** 2 + (y - canvasY) ** 2);
       if (distance <= 12) return point.id;
     }
@@ -187,11 +167,8 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     for (const zone of keepoutZones) {
       for (const point of zone.points) {
         const mapPoint = worldToMap(point.x, point.y);
-        const canvas = canvasRef.current;
-        if (!canvas) continue;
-        
-        const canvasX = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
-        const canvasY = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+        const canvasX = scene.x + (mapPoint.x * scene.scaleX);
+        const canvasY = scene.y + (mapPoint.y * scene.scaleY);
         const distance = Math.sqrt((x - canvasX) ** 2 + (y - canvasY) ** 2);
         if (distance <= 8) return point.id;
       }
@@ -201,7 +178,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
+    const canvas = overlayCanvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -256,8 +233,8 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (activeTool !== 'select') return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const canvas = overlayCanvasRef.current;
+    if (!canvas || !ros2dMapService?.viewer?.scene) return;
 
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -271,8 +248,9 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
       const point = waypoints.find(p => p.id === clickedPoint);
       if (point) {
         const mapPoint = worldToMap(point.x, point.y);
-        const canvasX = (mapPoint.x / (mapData?.width || 1)) * canvas.width;
-        const canvasY = (mapPoint.y / (mapData?.height || 1)) * canvas.height;
+        const scene = ros2dMapService.viewer.scene;
+        const canvasX = scene.x + (mapPoint.x * scene.scaleX);
+        const canvasY = scene.y + (mapPoint.y * scene.scaleY);
         setDragOffset({ x: x - canvasX, y: y - canvasY });
       }
     }
@@ -281,7 +259,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!isDragging || !selectedPoint || activeTool !== 'select') return;
 
-    const canvas = canvasRef.current;
+    const canvas = overlayCanvasRef.current;
     if (!canvas) return;
 
     const rect = canvas.getBoundingClientRect();
@@ -348,9 +326,17 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
 
   return (
     <div className="relative h-full bg-slate-900">
+      {/* ROS2D Map Container */}
+      <div
+        id="patrol-map-container"
+        ref={mapContainerRef}
+        className="w-full h-full"
+      />
+      
+      {/* Overlay Canvas for waypoints and zones */}
       <canvas
-        ref={canvasRef}
-        className="w-full h-full cursor-crosshair"
+        ref={overlayCanvasRef}
+        className="absolute top-0 left-0 w-full h-full cursor-crosshair pointer-events-auto"
         onClick={handleCanvasClick}
         onDoubleClick={handleCanvasDoubleClick}
         onMouseDown={handleMouseDown}
@@ -387,7 +373,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
           <div>Waypoints: {waypoints.length}</div>
           <div>Keepout Zones: {keepoutZones.filter(z => z.completed).length}</div>
           {selectedPoint && <div className="text-blue-400">Point selected</div>}
-          {mapData && <div className="text-green-400">Map loaded</div>}
+          {ros2dMapService && <div className="text-green-400">Map loaded</div>}
         </div>
       </div>
     </div>

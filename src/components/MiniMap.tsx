@@ -2,17 +2,6 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useMapService } from '@/hooks/useMapService';
 
-// Declare global ROS2D types
-declare global {
-  interface Window {
-    ROSLIB: any;
-    ROS2D: any;
-    EaselJS: any;
-    EventEmitter2: any;
-    createjs: any;
-  }
-}
-
 interface RobotPose {
   position: { x: number; y: number; z: number };
   orientation: { x: number; y: number; z: number; w: number };
@@ -20,122 +9,17 @@ interface RobotPose {
 
 const MiniMap: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const viewerRef = useRef<any>(null);
-  const gridClientRef = useRef<any>(null);
-  const rosRef = useRef<any>(null);
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
   const [mapDimensions, setMapDimensions] = useState({ width: 200, height: 200 });
   const { isConnected, subscribe } = useWebSocket();
-  const { waypoints, keepoutZones, worldToMap } = useMapService();
+  const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService } = useMapService();
 
-  // Load ROS2D.js libraries and initialize map
+  // Initialize ROS2D map
   useEffect(() => {
-    const loadLibraries = async () => {
-      // Load EaselJS first (required for createjs)
-      if (!window.createjs) {
-        const easelScript = document.createElement('script');
-        easelScript.src = 'https://cdn.jsdelivr.net/npm/easeljs@1/lib/easeljs.js';
-        document.head.appendChild(easelScript);
-        await new Promise(resolve => easelScript.onload = resolve);
-      }
-
-      // Load EventEmitter2
-      if (!window.EventEmitter2) {
-        const eventScript = document.createElement('script');
-        eventScript.src = 'https://cdn.jsdelivr.net/npm/eventemitter2@6/lib/eventemitter2.js';
-        document.head.appendChild(eventScript);
-        await new Promise(resolve => eventScript.onload = resolve);
-      }
-
-      // Load roslibjs
-      if (!window.ROSLIB) {
-        const roslibScript = document.createElement('script');
-        roslibScript.src = 'https://cdn.jsdelivr.net/npm/roslib@1/build/roslib.js';
-        document.head.appendChild(roslibScript);
-        await new Promise(resolve => roslibScript.onload = resolve);
-      }
-
-      // Now load ROS2D after all dependencies are loaded
-      if (!window.ROS2D) {
-        const ros2dScript = document.createElement('script');
-        ros2dScript.src = '/src/lib/ros2d.min.js';
-        document.head.appendChild(ros2dScript);
-        await new Promise(resolve => ros2dScript.onload = resolve);
-      }
-    };
-
-    const initMap = async () => {
-      try {
-        await loadLibraries();
-
-        if (!mapContainerRef.current || !window.ROSLIB || !window.ROS2D) {
-          console.error('Required libraries or container not available');
-          return;
-        }
-
-        console.log('Initializing ROS2D MiniMap...');
-
-        // Connect to ROS
-        rosRef.current = new window.ROSLIB.Ros({
-          url: 'ws://localhost:9090'
-        });
-
-        rosRef.current.on('connection', () => {
-          console.log('MiniMap: Connected to ROS2 via WebSocket');
-        });
-
-        rosRef.current.on('error', (error: any) => {
-          console.error('MiniMap: ROS connection error:', error);
-        });
-
-        rosRef.current.on('close', () => {
-          console.log('MiniMap: ROS connection closed');
-        });
-
-        // Create the main viewer with smaller dimensions for mini map
-        viewerRef.current = new window.ROS2D.Viewer({
-          divID: 'minimap-container',
-          width: mapDimensions.width,
-          height: mapDimensions.height
-        });
-
-        // Setup the map client
-        gridClientRef.current = new window.ROS2D.OccupancyGridClient({
-          ros: rosRef.current,
-          rootObject: viewerRef.current.scene
-        });
-
-        // Scale the canvas to fit to the map
-        gridClientRef.current.on('change', () => {
-          console.log('MiniMap: Map data received:', gridClientRef.current.currentGrid);
-          viewerRef.current.scaleToDimensions(
-            gridClientRef.current.currentGrid.width,
-            gridClientRef.current.currentGrid.height
-          );
-        });
-
-        console.log('ROS2D MiniMap initialized successfully');
-
-      } catch (error) {
-        console.error('Error initializing ROS2D MiniMap:', error);
-      }
-    };
-
-    initMap();
-
-    // Cleanup function
-    return () => {
-      if (gridClientRef.current) {
-        gridClientRef.current.disconnect();
-      }
-      if (viewerRef.current) {
-        viewerRef.current.disconnect();
-      }
-      if (rosRef.current) {
-        rosRef.current.close();
-      }
-    };
-  }, [mapDimensions]);
+    if (!ros2dMapService) {
+      initializeROS2DMap('minimap-container', mapDimensions.width, mapDimensions.height);
+    }
+  }, [initializeROS2DMap, ros2dMapService, mapDimensions]);
 
   // Subscribe to robot pose
   useEffect(() => {

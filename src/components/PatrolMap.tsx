@@ -290,11 +290,12 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
 
     const worldPos = canvasToWorld(x - dragOffset.x, y - dragOffset.y);
 
-    setWaypoints(prev => prev.map(point => 
+    const updatedWaypoints = waypoints.map(point => 
       point.id === selectedPoint 
         ? { ...point, x: worldPos.x, y: worldPos.y }
         : point
-    ));
+    );
+    setWaypoints(updatedWaypoints);
   };
 
   const handleMouseUp = () => {
@@ -327,7 +328,8 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
 
   const handleDelete = () => {
     if (selectedPoint) {
-      setWaypoints(waypoints.filter(point => point.id !== selectedPoint));
+      const filteredWaypoints = waypoints.filter(point => point.id !== selectedPoint);
+      setWaypoints(filteredWaypoints);
       setSelectedPoint(null);
     }
   };

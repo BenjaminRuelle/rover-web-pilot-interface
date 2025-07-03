@@ -12,40 +12,14 @@ const MiniMap: React.FC = () => {
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
   const [mapDimensions, setMapDimensions] = useState({ width: 200, height: 200 });
   const { isConnected, subscribe } = useWebSocket();
-  const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService, mapData } = useMapService();
+  const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService } = useMapService();
 
-  // Calculate canvas dimensions based on map ratio and size factor
+  // Initialize ROS2D map
   useEffect(() => {
-    if (mapData) {
-      const mapAspectRatio = mapData.width / mapData.height;
-      const sizeFactor = 200; // Base size for minimap
-      const minHeight = 150; // Minimum height
-      
-      let canvasWidth, canvasHeight;
-      
-      if (mapAspectRatio > 1) {
-        // Map is wider than tall
-        canvasWidth = sizeFactor;
-        canvasHeight = Math.max(sizeFactor / mapAspectRatio, minHeight);
-      } else {
-        // Map is taller than wide
-        canvasHeight = Math.max(sizeFactor, minHeight);
-        canvasWidth = canvasHeight * mapAspectRatio;
-      }
-      
-      setMapDimensions({ 
-        width: Math.round(canvasWidth), 
-        height: Math.round(canvasHeight) 
-      });
-    }
-  }, [mapData]);
-
-  // Initialize ROS2D map after dimensions are calculated
-  useEffect(() => {
-    if (!ros2dMapService && mapData && mapDimensions.width > 0 && mapDimensions.height > 0) {
+    if (!ros2dMapService) {
       initializeROS2DMap('minimap-container', mapDimensions.width, mapDimensions.height);
     }
-  }, [initializeROS2DMap, ros2dMapService, mapData, mapDimensions]);
+  }, [initializeROS2DMap, ros2dMapService, mapDimensions]);
 
   // Subscribe to robot pose
   useEffect(() => {

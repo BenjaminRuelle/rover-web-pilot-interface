@@ -16,14 +16,42 @@ const MiniMap: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const { isConnected, subscribe } = useWebSocket();
-  const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService } = useMapService();
+  const { mapData, waypoints, keepoutZones, initializeROS2DMap, ros2dMapService } = useMapService();
 
-  // Initialize ROS2D map
+  // Calculate map dimensions from mapData first
   useEffect(() => {
-    if (!ros2dMapService) {
+    if (mapData) {
+      // Calculate aspect ratio from map data
+      const aspectRatio = mapData.width / mapData.height;
+      
+      // Set minimum height and calculate width based on aspect ratio
+      const minHeight = 150;
+      const canvasHeight = minHeight;
+      const canvasWidth = canvasHeight * aspectRatio;
+      
+      // Ensure maximum size constraints
+      const maxSize = 300;
+      let finalWidth = canvasWidth;
+      let finalHeight = canvasHeight;
+      
+      if (canvasWidth > maxSize) {
+        finalWidth = maxSize;
+        finalHeight = maxSize / aspectRatio;
+      }
+      
+      setMapDimensions({ 
+        width: Math.round(finalWidth), 
+        height: Math.round(finalHeight) 
+      });
+    }
+  }, [mapData]);
+
+  // Initialize ROS2D map after dimensions are calculated
+  useEffect(() => {
+    if (!ros2dMapService && mapDimensions.width > 0 && mapDimensions.height > 0 && mapData) {
       initializeROS2DMap('minimap-container', mapDimensions.width, mapDimensions.height);
     }
-  }, [initializeROS2DMap, ros2dMapService, mapDimensions]);
+  }, [initializeROS2DMap, ros2dMapService, mapDimensions, mapData]);
 
   // Subscribe to robot pose
   useEffect(() => {
@@ -37,45 +65,6 @@ const MiniMap: React.FC = () => {
       unsubscribePose();
     };
   }, [subscribe]);
-
-  // Update map dimensions based on loaded map
-  useEffect(() => {
-    if (ros2dMapService?.gridClient?.currentGrid) {
-      const grid = ros2dMapService.gridClient.currentGrid;
-      const mapWidth = grid.width;
-      const mapHeight = grid.height;
-      
-      // Calculate aspect ratio
-      const aspectRatio = mapWidth / mapHeight;
-      
-      // Set base size and scale to maintain aspect ratio
-      const baseSize = 200;
-      let canvasWidth, canvasHeight;
-      
-      if (aspectRatio > 1) {
-        // Wider than tall
-        canvasWidth = baseSize;
-        canvasHeight = baseSize / aspectRatio;
-      } else {
-        // Taller than wide
-        canvasHeight = baseSize;
-        canvasWidth = baseSize * aspectRatio;
-      }
-      
-      // Ensure minimum size
-      const minSize = 150;
-      if (canvasWidth < minSize || canvasHeight < minSize) {
-        const scale = minSize / Math.min(canvasWidth, canvasHeight);
-        canvasWidth *= scale;
-        canvasHeight *= scale;
-      }
-      
-      setMapDimensions({ 
-        width: Math.round(canvasWidth), 
-        height: Math.round(canvasHeight) 
-      });
-    }
-  }, [ros2dMapService?.gridClient?.currentGrid]);
 
   // Apply zoom and pan transformations
   useEffect(() => {

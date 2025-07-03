@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { useWebSocket } from '@/hooks/useWebSocket';
-import { useMapService } from '@/hooks/useMapService';
+import { useMapContext } from '@/contexts/MapContext';
 
 interface RobotPose {
   position: { x: number; y: number; z: number };
@@ -13,18 +13,18 @@ const MiniMap: React.FC = () => {
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
   const mapDimensions = { width: 200, height: 200 };
   const [zoomLevel, setZoomLevel] = useState(6);
-  const [panOffset, setPanOffset] = useState({ x: 150 , y: 165 });
+  const [panOffset, setPanOffset] = useState({ x: 150, y: 165 });
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 150, y: 165 });
   const { isConnected, subscribe } = useWebSocket();
-  const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService, worldToMap } = useMapService();
+  const { mapInstance, waypoints, keepoutZones, initializeMap, worldToMap, renderOverlay } = useMapContext();
 
-  // Initialize ROS2D map
+  // Initialize map for minimap
   useEffect(() => {
-    if (!ros2dMapService) {
-      initializeROS2DMap('minimap-container', mapDimensions.width, mapDimensions.height);
+    if (!mapInstance) {
+      initializeMap('minimap-container', mapDimensions.width, mapDimensions.height);
     }
-  }, [initializeROS2DMap, ros2dMapService]);
+  }, [initializeMap, mapInstance]);
 
   // Subscribe to robot pose
   useEffect(() => {
@@ -41,15 +41,14 @@ const MiniMap: React.FC = () => {
 
   // Apply zoom and pan transformations
   useEffect(() => {
-    if (ros2dMapService?.viewer) {
-      const viewer = ros2dMapService.viewer;
+    if (mapInstance?.viewer) {
+      const viewer = mapInstance.viewer;
       viewer.scene.scaleX = zoomLevel;
       viewer.scene.scaleY = zoomLevel;
       viewer.scene.x = panOffset.x;
       viewer.scene.y = panOffset.y;
-      console.log('Pan offset:', panOffset);
     }
-  }, [ros2dMapService?.viewer, zoomLevel, panOffset]);
+  }, [mapInstance?.viewer, zoomLevel, panOffset]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -85,98 +84,24 @@ const MiniMap: React.FC = () => {
     return Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
   }, []);
 
-  // Draw waypoints and keepout zones overlay
+  // Draw overlay including robot pose
   const drawOverlay = useCallback(() => {
     const canvas = overlayCanvasRef.current;
-    if (!canvas || !ros2dMapService?.viewer?.scene) return;
+    if (!canvas || !mapInstance?.viewer?.scene) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Set canvas size to match container
+    // Set canvas size
     canvas.width = mapDimensions.width;
     canvas.height = mapDimensions.height;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Clear and render shared overlay
+    renderOverlay(canvas, false);
 
-    const scene = ros2dMapService.viewer.scene;
-
-    // Draw keepout zones
-    keepoutZones.forEach(zone => {
-      if (zone.points.length > 0) {
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.3)';
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-        ctx.lineWidth = 1;
-        
-        ctx.beginPath();
-        const firstMapPoint = worldToMap(zone.points[0].x, zone.points[0].y);
-        const firstX = scene.x + (firstMapPoint.x * scene.scaleX);
-        const firstY = scene.y + (firstMapPoint.y * scene.scaleY);
-        ctx.moveTo(firstX, firstY);
-        
-        for (let i = 1; i < zone.points.length; i++) {
-          const mapPoint = worldToMap(zone.points[i].x, zone.points[i].y);
-          const x = scene.x + (mapPoint.x * scene.scaleX);
-          const y = scene.y + (mapPoint.y * scene.scaleY);
-          ctx.lineTo(x, y);
-        }
-        
-        if (zone.completed) {
-          ctx.closePath();
-          ctx.fill();
-        }
-        ctx.stroke();
-      }
-    });
-
-    // Draw waypoints
-    waypoints.forEach((point, index) => {
-      const mapPoint = worldToMap(point.x, point.y);
-      const x = scene.x + (mapPoint.x * scene.scaleX);
-      const y = scene.y + (mapPoint.y * scene.scaleY);
-      
-      // Draw waypoint circle
-      ctx.fillStyle = '#3b82f6';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, 2 * Math.PI);
-      ctx.fill();
-      ctx.stroke();
-
-      // Draw waypoint number
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '8px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText((index + 1).toString(), x, y);
-    });
-
-    // Draw path between waypoints
-    if (waypoints.length > 1) {
-      ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([2, 2]);
-      ctx.beginPath();
-      
-      const firstMapPoint = worldToMap(waypoints[0].x, waypoints[0].y);
-      const firstX = scene.x + (firstMapPoint.x * scene.scaleX);
-      const firstY = scene.y + (firstMapPoint.y * scene.scaleY);
-      ctx.moveTo(firstX, firstY);
-      
-      for (let i = 1; i < waypoints.length; i++) {
-        const mapPoint = worldToMap(waypoints[i].x, waypoints[i].y);
-        const x = scene.x + (mapPoint.x * scene.scaleX);
-        const y = scene.y + (mapPoint.y * scene.scaleY);
-        ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-
-    // Draw robot pose if available
-    if (robotPose) {
+    // Add robot pose on top
+    if (robotPose && mapInstance?.viewer?.scene) {
+      const scene = mapInstance.viewer.scene;
       const mapPoint = worldToMap(robotPose.position.x, robotPose.position.y);
       const x = scene.x + (mapPoint.x * scene.scaleX);
       const y = scene.y + (mapPoint.y * scene.scaleY);
@@ -200,7 +125,7 @@ const MiniMap: React.FC = () => {
       ctx.stroke();
       ctx.restore();
     }
-  }, [waypoints, keepoutZones, robotPose, worldToMap, ros2dMapService, quaternionToYaw]);
+  }, [robotPose, worldToMap, mapInstance, quaternionToYaw, renderOverlay]);
 
   useEffect(() => {
     drawOverlay();

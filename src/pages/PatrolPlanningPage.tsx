@@ -7,10 +7,12 @@ import PatrolScheduler from '@/components/PatrolScheduler';
 import { Button } from '@/components/ui/button';
 import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useMapContext } from '@/contexts/MapContext';
 
 const PatrolPlanningPage: React.FC = () => {
   const [activeTool, setActiveTool] = useState<PatrolTool>('select');
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
+  const { clearAll } = useMapContext();
 
   const handleSave = () => {
     console.log('Saving patrol route from page');
@@ -19,8 +21,7 @@ const PatrolPlanningPage: React.FC = () => {
 
   const handleClear = () => {
     console.log('Clearing patrol route from page');
-    // Force clear by updating key or triggering re-render
-    window.location.reload();
+    clearAll();
   };
 
   return (

@@ -10,11 +10,11 @@ interface RobotPose {
 const MiniMap: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
-  const mapDimensions = { width: 200, height: 200 };
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const mapDimensions = { width: 250, height: 250 };
+  const [zoomLevel, setZoomLevel] = useState(6);
+  const [panOffset, setPanOffset] = useState({ x: 150 , y: 165 });
   const [isDragging, setIsDragging] = useState(false);
-  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [lastMousePos, setLastMousePos] = useState({ x: 150, y: 165 });
   const { isConnected, subscribe } = useWebSocket();
   const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService } = useMapService();
 
@@ -46,13 +46,14 @@ const MiniMap: React.FC = () => {
       viewer.scene.scaleY = zoomLevel;
       viewer.scene.x = panOffset.x;
       viewer.scene.y = panOffset.y;
+      console.log('Pan offset:', panOffset);
     }
   }, [ros2dMapService?.viewer, zoomLevel, panOffset]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
-    const zoomSpeed = 0.1;
-    const newZoom = Math.max(0.5, Math.min(3, zoomLevel - e.deltaY * zoomSpeed * 0.01));
+    const zoomSpeed = 0.5;
+    const newZoom = Math.max(5, Math.min(30, zoomLevel - e.deltaY * zoomSpeed * 0.01));
     setZoomLevel(newZoom);
   }, [zoomLevel]);
 

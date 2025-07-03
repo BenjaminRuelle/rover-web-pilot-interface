@@ -19,6 +19,8 @@ const PatrolPlanningPage: React.FC = () => {
 
   const handleClear = () => {
     console.log('Clearing patrol route from page');
+    // Force clear by updating key or triggering re-render
+    window.location.reload();
   };
 
   return (

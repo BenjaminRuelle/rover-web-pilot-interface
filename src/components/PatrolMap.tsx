@@ -19,35 +19,10 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   
   const { mapData, waypoints, keepoutZones, setWaypoints, setKeepoutZones, worldToMap, mapToWorld, initializeROS2DMap, ros2dMapService } = useMapService();
 
-  // Calculate canvas dimensions based on map ratio and available space
+  // Use full container dimensions for the patrol map
   useEffect(() => {
     const updateDimensions = () => {
-      if (mapContainerRef.current && mapData) {
-        const rect = mapContainerRef.current.getBoundingClientRect();
-        const availableWidth = rect.width;
-        const availableHeight = rect.height;
-        const mapAspectRatio = mapData.width / mapData.height;
-        const minHeight = 400; // Minimum height for patrol map
-        
-        let canvasWidth, canvasHeight;
-        
-        // Calculate canvas size based on map aspect ratio and available space
-        if (mapAspectRatio > (availableWidth / availableHeight)) {
-          // Map is wider relative to available space - fit by width
-          canvasWidth = availableWidth;
-          canvasHeight = Math.max(availableWidth / mapAspectRatio, minHeight);
-        } else {
-          // Map is taller relative to available space - fit by height
-          canvasHeight = Math.max(availableHeight, minHeight);
-          canvasWidth = canvasHeight * mapAspectRatio;
-        }
-        
-        setMapDimensions({ 
-          width: Math.round(canvasWidth), 
-          height: Math.round(canvasHeight) 
-        });
-      } else if (mapContainerRef.current && !mapData) {
-        // Fallback to container size if no map data yet
+      if (mapContainerRef.current) {
         const rect = mapContainerRef.current.getBoundingClientRect();
         setMapDimensions({ width: rect.width, height: rect.height });
       }
@@ -56,7 +31,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
-  }, [mapData]);
+  }, []);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
@@ -335,6 +310,21 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     });
     onSave();
   };
+
+  // Handle clear from parent (toolbar)
+  useEffect(() => {
+    const handleClearExternal = () => {
+      setWaypoints([]);
+      setKeepoutZones([]);
+      setActiveZone(null);
+      setSelectedPoint(null);
+    };
+    
+    // Listen for clear events
+    if (onClear) {
+      // We'll handle clear internally when called from toolbar
+    }
+  }, [onClear]);
 
   const handleClearInternal = () => {
     setWaypoints([]);

@@ -10,7 +10,7 @@ interface RobotPose {
 const MiniMap: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
-  const [mapDimensions, setMapDimensions] = useState({ width: 200, height: 200 });
+  const mapDimensions = { width: 200, height: 200 };
   const [zoomLevel, setZoomLevel] = useState(1);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -23,7 +23,7 @@ const MiniMap: React.FC = () => {
     if (!ros2dMapService) {
       initializeROS2DMap('minimap-container', mapDimensions.width, mapDimensions.height);
     }
-  }, [initializeROS2DMap, ros2dMapService, mapDimensions]);
+  }, [initializeROS2DMap, ros2dMapService]);
 
   // Subscribe to robot pose
   useEffect(() => {
@@ -37,45 +37,6 @@ const MiniMap: React.FC = () => {
       unsubscribePose();
     };
   }, [subscribe]);
-
-  // Update map dimensions based on loaded map
-  useEffect(() => {
-    if (ros2dMapService?.gridClient?.currentGrid) {
-      const grid = ros2dMapService.gridClient.currentGrid;
-      const mapWidth = grid.width;
-      const mapHeight = grid.height;
-      
-      // Calculate aspect ratio
-      const aspectRatio = mapWidth / mapHeight;
-      
-      // Set base size and scale to maintain aspect ratio
-      const baseSize = 200;
-      let canvasWidth, canvasHeight;
-      
-      if (aspectRatio > 1) {
-        // Wider than tall
-        canvasWidth = baseSize;
-        canvasHeight = baseSize / aspectRatio;
-      } else {
-        // Taller than wide
-        canvasHeight = baseSize;
-        canvasWidth = baseSize * aspectRatio;
-      }
-      
-      // Ensure minimum size
-      const minSize = 150;
-      if (canvasWidth < minSize || canvasHeight < minSize) {
-        const scale = minSize / Math.min(canvasWidth, canvasHeight);
-        canvasWidth *= scale;
-        canvasHeight *= scale;
-      }
-      
-      setMapDimensions({ 
-        width: Math.round(canvasWidth), 
-        height: Math.round(canvasHeight) 
-      });
-    }
-  }, [ros2dMapService?.gridClient?.currentGrid]);
 
   // Apply zoom and pan transformations
   useEffect(() => {

@@ -19,40 +19,32 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   
   const { mapData, waypoints, keepoutZones, setWaypoints, setKeepoutZones, worldToMap, mapToWorld, initializeROS2DMap, ros2dMapService } = useMapService();
 
-  // Calculate container dimensions based on available space and map data
+  // Calculate canvas dimensions based on map ratio and available space
   useEffect(() => {
     const updateDimensions = () => {
       if (mapContainerRef.current && mapData) {
         const rect = mapContainerRef.current.getBoundingClientRect();
         const availableWidth = rect.width;
         const availableHeight = rect.height;
+        const mapAspectRatio = mapData.width / mapData.height;
         const minHeight = 400; // Minimum height for patrol map
         
-        const mapAspectRatio = mapData.width / mapData.height;
+        let canvasWidth, canvasHeight;
         
-        let containerWidth, containerHeight;
-        
-        // Calculate dimensions to fit the available space while maintaining map aspect ratio
-        const widthBasedHeight = availableWidth / mapAspectRatio;
-        const heightBasedWidth = availableHeight * mapAspectRatio;
-        
-        if (widthBasedHeight <= availableHeight && widthBasedHeight >= minHeight) {
-          // Fit by width
-          containerWidth = availableWidth;
-          containerHeight = widthBasedHeight;
-        } else if (heightBasedWidth <= availableWidth) {
-          // Fit by height
-          containerWidth = heightBasedWidth;
-          containerHeight = Math.max(availableHeight, minHeight);
+        // Calculate canvas size based on map aspect ratio and available space
+        if (mapAspectRatio > (availableWidth / availableHeight)) {
+          // Map is wider relative to available space - fit by width
+          canvasWidth = availableWidth;
+          canvasHeight = Math.max(availableWidth / mapAspectRatio, minHeight);
         } else {
-          // Use minimum height and calculate width
-          containerHeight = Math.max(minHeight, availableHeight);
-          containerWidth = containerHeight * mapAspectRatio;
+          // Map is taller relative to available space - fit by height
+          canvasHeight = Math.max(availableHeight, minHeight);
+          canvasWidth = canvasHeight * mapAspectRatio;
         }
         
         setMapDimensions({ 
-          width: Math.round(containerWidth), 
-          height: Math.round(containerHeight) 
+          width: Math.round(canvasWidth), 
+          height: Math.round(canvasHeight) 
         });
       } else if (mapContainerRef.current && !mapData) {
         // Fallback to container size if no map data yet

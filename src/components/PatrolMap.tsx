@@ -15,17 +15,32 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [activeZone, setActiveZone] = useState<string | null>(null);
+  const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 600 });
   
   const { mapData, waypoints, keepoutZones, setWaypoints, setKeepoutZones, worldToMap, mapToWorld, initializeROS2DMap, ros2dMapService } = useMapService();
+
+  // Update dimensions based on container size
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (mapContainerRef.current) {
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        setMapDimensions({ width: rect.width, height: rect.height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
   // Initialize ROS2D map
   useEffect(() => {
-    if (!ros2dMapService) {
-      initializeROS2DMap('patrol-map-container', 800, 600);
+    if (!ros2dMapService && mapDimensions.width > 0 && mapDimensions.height > 0) {
+      initializeROS2DMap('patrol-map-container', mapDimensions.width, mapDimensions.height);
     }
-  }, [initializeROS2DMap, ros2dMapService]);
+  }, [initializeROS2DMap, ros2dMapService, mapDimensions]);
 
   const drawOverlay = useCallback(() => {
     const canvas = overlayCanvasRef.current;

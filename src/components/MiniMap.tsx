@@ -14,6 +14,20 @@ const MiniMap: React.FC = () => {
   const { isConnected, subscribe } = useWebSocket();
   const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService } = useMapService();
 
+  // Update dimensions based on container size
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (mapContainerRef.current) {
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        setMapDimensions({ width: rect.width, height: rect.height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, []);
+
   // Initialize ROS2D map
   useEffect(() => {
     if (!ros2dMapService) {

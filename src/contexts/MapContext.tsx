@@ -63,7 +63,7 @@ interface MapContextType {
   initializeMap: (containerId: string, width: number, height: number) => Promise<SharedMapInstance | null>;
   
   // Overlay rendering
-  renderOverlay: (canvas: HTMLCanvasElement, isEditable?: boolean) => void;
+  renderOverlay: (canvas: HTMLCanvasElement, mapInstance: SharedMapInstance, isEditable?: boolean) => void;
 }
 
 const MapContext = createContext<MapContextType | undefined>(undefined);
@@ -158,11 +158,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
   }, []);
 
   const initializeMap = useCallback(async (containerId: string, width: number, height: number): Promise<SharedMapInstance | null> => {
-    // If we already have a map instance for this container, return it
-    if (mapInstance && mapInstance.containerId === containerId) {
-      return mapInstance;
-    }
-
+    // Always create a new map instance for each container
     try {
       await loadROS2DLibraries();
 
@@ -214,17 +210,17 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
         dimensions: { width, height }
       };
 
-      setMapInstance(newMapInstance);
-      console.log('Shared ROS2D Map initialized successfully');
+      // Don't store globally, let each component manage its own instance
+      console.log('ROS2D Map initialized successfully for', containerId);
       return newMapInstance;
 
     } catch (error) {
       console.error('Error initializing shared ROS2D Map:', error);
       return null;
     }
-  }, [loadROS2DLibraries, mapInstance]);
+  }, [loadROS2DLibraries]);
 
-  const renderOverlay = useCallback((canvas: HTMLCanvasElement, isEditable: boolean = false) => {
+  const renderOverlay = useCallback((canvas: HTMLCanvasElement, mapInstance: SharedMapInstance, isEditable: boolean = false) => {
     if (!mapInstance?.viewer?.scene) return;
 
     const ctx = canvas.getContext('2d');
@@ -318,7 +314,7 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       ctx.stroke();
       ctx.setLineDash([]);
     }
-  }, [mapInstance, keepoutZones, waypoints, worldToMap]);
+  }, [keepoutZones, waypoints, worldToMap]);
 
   const clearAll = useCallback(() => {
     setWaypoints([]);

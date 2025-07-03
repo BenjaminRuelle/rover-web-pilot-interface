@@ -16,9 +16,9 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   const [isDragging, setIsDragging] = useState(false);
   const [activeZone, setActiveZone] = useState<string | null>(null);
   const [mapDimensions, setMapDimensions] = useState({ width: 800, height: 600 });
+  const [localMapInstance, setLocalMapInstance] = useState<any>(null);
   
   const { 
-    mapInstance, 
     mapData, 
     waypoints, 
     keepoutZones, 
@@ -49,37 +49,38 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
 
   // Initialize map
   useEffect(() => {
-    if (!mapInstance && mapDimensions.width > 0 && mapDimensions.height > 0) {
-      initializeMap('patrol-map-container', mapDimensions.width, mapDimensions.height);
+    if (!localMapInstance && mapDimensions.width > 0 && mapDimensions.height > 0) {
+      initializeMap('patrol-map-container', mapDimensions.width, mapDimensions.height)
+        .then(instance => setLocalMapInstance(instance));
     }
-  }, [initializeMap, mapInstance, mapDimensions]);
+  }, [initializeMap, localMapInstance, mapDimensions]);
 
   // Render overlay
   useEffect(() => {
     const canvas = overlayCanvasRef.current;
     const container = mapContainerRef.current;
-    if (!canvas || !container) return;
+    if (!canvas || !container || !localMapInstance) return;
 
     canvas.width = container.offsetWidth;
     canvas.height = container.offsetHeight;
     
-    renderOverlay(canvas, true);
-  }, [renderOverlay, waypoints, keepoutZones, selectedPoint]);
+    renderOverlay(canvas, localMapInstance, true);
+  }, [renderOverlay, waypoints, keepoutZones, selectedPoint, localMapInstance]);
 
   const canvasToWorld = useCallback((canvasX: number, canvasY: number) => {
-    if (!mapInstance?.viewer?.scene || !mapData) return { x: 0, y: 0 };
+    if (!localMapInstance?.viewer?.scene || !mapData) return { x: 0, y: 0 };
     
-    const scene = mapInstance.viewer.scene;
+    const scene = localMapInstance.viewer.scene;
     const mapX = (canvasX - scene.x) / scene.scaleX;
     const mapY = (canvasY - scene.y) / scene.scaleY;
     
     return mapToWorld(mapX, mapY);
-  }, [mapData, mapToWorld, mapInstance]);
+  }, [mapData, mapToWorld, localMapInstance]);
 
   const getClickedPoint = (x: number, y: number): string | null => {
-    if (!mapInstance?.viewer?.scene) return null;
+    if (!localMapInstance?.viewer?.scene) return null;
     
-    const scene = mapInstance.viewer.scene;
+    const scene = localMapInstance.viewer.scene;
     
     // Check waypoints
     for (const point of waypoints) {
@@ -158,7 +159,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     if (activeTool !== 'select') return;
 
     const canvas = overlayCanvasRef.current;
-    if (!canvas || !mapInstance?.viewer?.scene) return;
+    if (!canvas || !localMapInstance?.viewer?.scene) return;
 
     const rect = canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -172,7 +173,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
       const point = waypoints.find(p => p.id === clickedPoint);
       if (point) {
         const mapPoint = worldToMap(point.x, point.y);
-        const scene = mapInstance.viewer.scene;
+        const scene = localMapInstance.viewer.scene;
         const canvasX = scene.x + (mapPoint.x * scene.scaleX);
         const canvasY = scene.y + (mapPoint.y * scene.scaleY);
         setDragOffset({ x: x - canvasX, y: y - canvasY });
@@ -302,7 +303,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
           <div>Waypoints: {waypoints.length}</div>
           <div>Keepout Zones: {keepoutZones.filter(z => z.completed).length}</div>
           {selectedPoint && <div className="text-blue-400">Point selected</div>}
-          {mapInstance && <div className="text-green-400">Map loaded</div>}
+          {localMapInstance && <div className="text-green-400">Map loaded</div>}
         </div>
       </div>
     </div>

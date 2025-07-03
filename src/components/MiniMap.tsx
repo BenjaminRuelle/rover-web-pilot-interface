@@ -16,15 +16,17 @@ const MiniMap: React.FC = () => {
   const [panOffset, setPanOffset] = useState({ x: 150, y: 165 });
   const [isDragging, setIsDragging] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 150, y: 165 });
+  const [localMapInstance, setLocalMapInstance] = useState<any>(null);
   const { isConnected, subscribe } = useWebSocket();
-  const { mapInstance, waypoints, keepoutZones, initializeMap, worldToMap, renderOverlay } = useMapContext();
+  const { waypoints, keepoutZones, initializeMap, worldToMap, renderOverlay } = useMapContext();
 
   // Initialize map for minimap
   useEffect(() => {
-    if (!mapInstance) {
-      initializeMap('minimap-container', mapDimensions.width, mapDimensions.height);
+    if (!localMapInstance) {
+      initializeMap('minimap-container', mapDimensions.width, mapDimensions.height)
+        .then(instance => setLocalMapInstance(instance));
     }
-  }, [initializeMap, mapInstance]);
+  }, [initializeMap, localMapInstance]);
 
   // Subscribe to robot pose
   useEffect(() => {
@@ -41,14 +43,14 @@ const MiniMap: React.FC = () => {
 
   // Apply zoom and pan transformations
   useEffect(() => {
-    if (mapInstance?.viewer) {
-      const viewer = mapInstance.viewer;
+    if (localMapInstance?.viewer) {
+      const viewer = localMapInstance.viewer;
       viewer.scene.scaleX = zoomLevel;
       viewer.scene.scaleY = zoomLevel;
       viewer.scene.x = panOffset.x;
       viewer.scene.y = panOffset.y;
     }
-  }, [mapInstance?.viewer, zoomLevel, panOffset]);
+  }, [localMapInstance?.viewer, zoomLevel, panOffset]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -87,7 +89,7 @@ const MiniMap: React.FC = () => {
   // Draw overlay including robot pose
   const drawOverlay = useCallback(() => {
     const canvas = overlayCanvasRef.current;
-    if (!canvas || !mapInstance?.viewer?.scene) return;
+    if (!canvas || !localMapInstance?.viewer?.scene) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -97,11 +99,11 @@ const MiniMap: React.FC = () => {
     canvas.height = mapDimensions.height;
 
     // Clear and render shared overlay
-    renderOverlay(canvas, false);
+    renderOverlay(canvas, localMapInstance, false);
 
     // Add robot pose on top
-    if (robotPose && mapInstance?.viewer?.scene) {
-      const scene = mapInstance.viewer.scene;
+    if (robotPose && localMapInstance?.viewer?.scene) {
+      const scene = localMapInstance.viewer.scene;
       const mapPoint = worldToMap(robotPose.position.x, robotPose.position.y);
       const x = scene.x + (mapPoint.x * scene.scaleX);
       const y = scene.y + (mapPoint.y * scene.scaleY);
@@ -125,7 +127,7 @@ const MiniMap: React.FC = () => {
       ctx.stroke();
       ctx.restore();
     }
-  }, [robotPose, worldToMap, mapInstance, quaternionToYaw, renderOverlay]);
+  }, [robotPose, worldToMap, localMapInstance, quaternionToYaw, renderOverlay]);
 
   useEffect(() => {
     drawOverlay();

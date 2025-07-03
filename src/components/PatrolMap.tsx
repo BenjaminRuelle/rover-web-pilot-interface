@@ -19,10 +19,43 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   
   const { mapData, waypoints, keepoutZones, setWaypoints, setKeepoutZones, worldToMap, mapToWorld, initializeROS2DMap, ros2dMapService } = useMapService();
 
-  // Update dimensions based on container size
+  // Calculate container dimensions based on available space and map data
   useEffect(() => {
     const updateDimensions = () => {
-      if (mapContainerRef.current) {
+      if (mapContainerRef.current && mapData) {
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        const availableWidth = rect.width;
+        const availableHeight = rect.height;
+        const minHeight = 400; // Minimum height for patrol map
+        
+        const mapAspectRatio = mapData.width / mapData.height;
+        
+        let containerWidth, containerHeight;
+        
+        // Calculate dimensions to fit the available space while maintaining map aspect ratio
+        const widthBasedHeight = availableWidth / mapAspectRatio;
+        const heightBasedWidth = availableHeight * mapAspectRatio;
+        
+        if (widthBasedHeight <= availableHeight && widthBasedHeight >= minHeight) {
+          // Fit by width
+          containerWidth = availableWidth;
+          containerHeight = widthBasedHeight;
+        } else if (heightBasedWidth <= availableWidth) {
+          // Fit by height
+          containerWidth = heightBasedWidth;
+          containerHeight = Math.max(availableHeight, minHeight);
+        } else {
+          // Use minimum height and calculate width
+          containerHeight = Math.max(minHeight, availableHeight);
+          containerWidth = containerHeight * mapAspectRatio;
+        }
+        
+        setMapDimensions({ 
+          width: Math.round(containerWidth), 
+          height: Math.round(containerHeight) 
+        });
+      } else if (mapContainerRef.current && !mapData) {
+        // Fallback to container size if no map data yet
         const rect = mapContainerRef.current.getBoundingClientRect();
         setMapDimensions({ width: rect.width, height: rect.height });
       }
@@ -31,11 +64,11 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
+  }, [mapData]);
 
   const generateId = () => Math.random().toString(36).substr(2, 9);
 
-  // Initialize ROS2D map
+  // Initialize ROS2D map after dimensions are calculated
   useEffect(() => {
     if (!ros2dMapService && mapDimensions.width > 0 && mapDimensions.height > 0) {
       initializeROS2DMap('patrol-map-container', mapDimensions.width, mapDimensions.height);

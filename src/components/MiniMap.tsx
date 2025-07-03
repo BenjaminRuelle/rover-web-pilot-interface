@@ -12,28 +12,41 @@ const MiniMap: React.FC = () => {
   const [robotPose, setRobotPose] = useState<RobotPose | null>(null);
   const [mapDimensions, setMapDimensions] = useState({ width: 200, height: 200 });
   const { isConnected, subscribe } = useWebSocket();
-  const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService } = useMapService();
+  const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService, mapData } = useMapService();
 
-  // Update dimensions based on container size
+  // Calculate container dimensions based on map data
   useEffect(() => {
-    const updateDimensions = () => {
-      if (mapContainerRef.current) {
-        const rect = mapContainerRef.current.getBoundingClientRect();
-        setMapDimensions({ width: rect.width, height: rect.height });
+    if (mapData) {
+      const minHeight = 150; // Minimum height for minimap
+      const maxWidth = 250; // Maximum width to keep it reasonable
+      
+      const mapAspectRatio = mapData.width / mapData.height;
+      
+      let containerWidth, containerHeight;
+      
+      if (mapAspectRatio > 1) {
+        // Map is wider than tall
+        containerWidth = Math.min(maxWidth, minHeight * mapAspectRatio);
+        containerHeight = containerWidth / mapAspectRatio;
+      } else {
+        // Map is taller than wide
+        containerHeight = Math.max(minHeight, minHeight);
+        containerWidth = containerHeight * mapAspectRatio;
       }
-    };
+      
+      setMapDimensions({ 
+        width: Math.round(containerWidth), 
+        height: Math.round(containerHeight) 
+      });
+    }
+  }, [mapData]);
 
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
-  }, []);
-
-  // Initialize ROS2D map
+  // Initialize ROS2D map after dimensions are calculated
   useEffect(() => {
-    if (!ros2dMapService) {
+    if (!ros2dMapService && mapData && mapDimensions.width > 0 && mapDimensions.height > 0) {
       initializeROS2DMap('minimap-container', mapDimensions.width, mapDimensions.height);
     }
-  }, [initializeROS2DMap, ros2dMapService, mapDimensions]);
+  }, [initializeROS2DMap, ros2dMapService, mapData, mapDimensions]);
 
   // Subscribe to robot pose
   useEffect(() => {

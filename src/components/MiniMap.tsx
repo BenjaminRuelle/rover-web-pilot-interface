@@ -14,31 +14,51 @@ const MiniMap: React.FC = () => {
   const { isConnected, subscribe } = useWebSocket();
   const { waypoints, keepoutZones, initializeROS2DMap, ros2dMapService, mapData } = useMapService();
 
-  // Calculate container dimensions based on map data
+  // Calculate container dimensions based on available space and map data
   useEffect(() => {
-    if (mapData) {
-      const minHeight = 150; // Minimum height for minimap
-      const maxWidth = 250; // Maximum width to keep it reasonable
-      
-      const mapAspectRatio = mapData.width / mapData.height;
-      
-      let containerWidth, containerHeight;
-      
-      if (mapAspectRatio > 1) {
-        // Map is wider than tall
-        containerWidth = Math.min(maxWidth, minHeight * mapAspectRatio);
-        containerHeight = containerWidth / mapAspectRatio;
-      } else {
-        // Map is taller than wide
-        containerHeight = Math.max(minHeight, minHeight);
-        containerWidth = containerHeight * mapAspectRatio;
+    const updateDimensions = () => {
+      if (mapContainerRef.current && mapData) {
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        const availableWidth = rect.width || 200; // Fallback width
+        const availableHeight = rect.height || 200; // Fallback height
+        const minHeight = 150; // Minimum height for minimap
+        
+        const mapAspectRatio = mapData.width / mapData.height;
+        
+        let containerWidth, containerHeight;
+        
+        // Calculate dimensions to fit the available space while maintaining map aspect ratio
+        const widthBasedHeight = availableWidth / mapAspectRatio;
+        const heightBasedWidth = availableHeight * mapAspectRatio;
+        
+        if (widthBasedHeight <= availableHeight && widthBasedHeight >= minHeight) {
+          // Fit by width
+          containerWidth = availableWidth;
+          containerHeight = widthBasedHeight;
+        } else if (heightBasedWidth <= availableWidth) {
+          // Fit by height
+          containerWidth = heightBasedWidth;
+          containerHeight = Math.max(availableHeight, minHeight);
+        } else {
+          // Use minimum height and calculate width
+          containerHeight = Math.max(minHeight, availableHeight);
+          containerWidth = containerHeight * mapAspectRatio;
+        }
+        
+        setMapDimensions({ 
+          width: Math.round(containerWidth), 
+          height: Math.round(containerHeight) 
+        });
+      } else if (mapContainerRef.current && !mapData) {
+        // Fallback to container size if no map data yet
+        const rect = mapContainerRef.current.getBoundingClientRect();
+        setMapDimensions({ width: rect.width || 200, height: rect.height || 200 });
       }
-      
-      setMapDimensions({ 
-        width: Math.round(containerWidth), 
-        height: Math.round(containerHeight) 
-      });
-    }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
   }, [mapData]);
 
   // Initialize ROS2D map after dimensions are calculated

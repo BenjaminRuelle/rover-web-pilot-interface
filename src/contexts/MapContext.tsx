@@ -58,6 +58,8 @@ interface MapContextType {
   // Coordinate conversion
   worldToMap: (worldX: number, worldY: number) => { x: number; y: number };
   mapToWorld: (mapX: number, mapY: number) => { x: number; y: number };
+  worldToCanvasPoint: (worldX: number, worldY: number, mapInstance: SharedMapInstance) => { x: number; y: number };
+  canvasToWorldPoint: (canvasX: number, canvasY: number, mapInstance: SharedMapInstance) => { x: number; y: number };
   
   // Map initialization
   initializeMap: (containerId: string, width: number, height: number) => Promise<SharedMapInstance | null>;
@@ -220,15 +222,48 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
     }
   }, [loadROS2DLibraries]);
 
+  // Coordinate conversion that properly accounts for ROS2D transformations
+  const worldToCanvasPoint = useCallback((worldX: number, worldY: number, mapInstance: SharedMapInstance) => {
+    if (!mapInstance?.viewer?.scene || !mapInstance.gridClient?.currentGrid) return { x: 0, y: 0 };
+    
+    const grid = mapInstance.gridClient.currentGrid;
+    const scene = mapInstance.viewer.scene;
+    
+    // Convert world coordinates to grid coordinates
+    const gridX = (worldX - grid.pose.position.x) / grid.resolution;
+    const gridY = (worldY - grid.pose.position.y) / grid.resolution;
+    
+    // Apply scene transformations (scale and position)
+    const canvasX = scene.x + (gridX * scene.scaleX);
+    const canvasY = scene.y + (gridY * scene.scaleY);
+    
+    return { x: canvasX, y: canvasY };
+  }, []);
+
+  const canvasToWorldPoint = useCallback((canvasX: number, canvasY: number, mapInstance: SharedMapInstance) => {
+    if (!mapInstance?.viewer?.scene || !mapInstance.gridClient?.currentGrid) return { x: 0, y: 0 };
+    
+    const grid = mapInstance.gridClient.currentGrid;
+    const scene = mapInstance.viewer.scene;
+    
+    // Convert canvas coordinates back to grid coordinates
+    const gridX = (canvasX - scene.x) / scene.scaleX;
+    const gridY = (canvasY - scene.y) / scene.scaleY;
+    
+    // Convert grid coordinates to world coordinates
+    const worldX = gridX * grid.resolution + grid.pose.position.x;
+    const worldY = gridY * grid.resolution + grid.pose.position.y;
+    
+    return { x: worldX, y: worldY };
+  }, []);
+
   const renderOverlay = useCallback((canvas: HTMLCanvasElement, mapInstance: SharedMapInstance, isEditable: boolean = false) => {
-    if (!mapInstance?.viewer?.scene) return;
+    if (!mapInstance?.viewer?.scene || !mapInstance.gridClient?.currentGrid) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const scene = mapInstance.viewer.scene;
 
     // Draw keepout zones
     keepoutZones.forEach(zone => {
@@ -238,16 +273,12 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
         ctx.lineWidth = isEditable ? 2 : 1;
         
         ctx.beginPath();
-        const firstMapPoint = worldToMap(zone.points[0].x, zone.points[0].y);
-        const firstX = scene.x + (firstMapPoint.x * scene.scaleX);
-        const firstY = scene.y + (firstMapPoint.y * scene.scaleY);
-        ctx.moveTo(firstX, firstY);
+        const firstPoint = worldToCanvasPoint(zone.points[0].x, zone.points[0].y, mapInstance);
+        ctx.moveTo(firstPoint.x, firstPoint.y);
         
         for (let i = 1; i < zone.points.length; i++) {
-          const mapPoint = worldToMap(zone.points[i].x, zone.points[i].y);
-          const x = scene.x + (mapPoint.x * scene.scaleX);
-          const y = scene.y + (mapPoint.y * scene.scaleY);
-          ctx.lineTo(x, y);
+          const point = worldToCanvasPoint(zone.points[i].x, zone.points[i].y, mapInstance);
+          ctx.lineTo(point.x, point.y);
         }
         
         if (zone.completed) {
@@ -259,13 +290,10 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
         // Draw zone points (only in editable mode)
         if (isEditable) {
           zone.points.forEach(point => {
-            const mapPoint = worldToMap(point.x, point.y);
-            const x = scene.x + (mapPoint.x * scene.scaleX);
-            const y = scene.y + (mapPoint.y * scene.scaleY);
-            
+            const canvasPoint = worldToCanvasPoint(point.x, point.y, mapInstance);
             ctx.fillStyle = '#ff0000';
             ctx.beginPath();
-            ctx.arc(x, y, 4, 0, 2 * Math.PI);
+            ctx.arc(canvasPoint.x, canvasPoint.y, 4, 0, 2 * Math.PI);
             ctx.fill();
           });
         }
@@ -274,23 +302,24 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
 
     // Draw waypoints
     waypoints.forEach((point, index) => {
-      const mapPoint = worldToMap(point.x, point.y);
-      const x = scene.x + (mapPoint.x * scene.scaleX);
-      const y = scene.y + (mapPoint.y * scene.scaleY);
+      const canvasPoint = worldToCanvasPoint(point.x, point.y, mapInstance);
       
       ctx.fillStyle = '#3b82f6';
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = isEditable ? 2 : 1;
       ctx.beginPath();
-      ctx.arc(x, y, isEditable ? 12 : 3, 0, 2 * Math.PI);
+      ctx.arc(canvasPoint.x, canvasPoint.y, isEditable ? 12 : 3, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = isEditable ? '12px Arial' : '8px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText((index + 1).toString(), x, y);
+      if (canvasPoint.x >= 0 && canvasPoint.x <= canvas.width && 
+          canvasPoint.y >= 0 && canvasPoint.y <= canvas.height) {
+        ctx.fillStyle = '#ffffff';
+        ctx.font = isEditable ? '12px Arial' : '8px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText((index + 1).toString(), canvasPoint.x, canvasPoint.y);
+      }
     });
 
     // Draw path between waypoints
@@ -300,21 +329,17 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
       ctx.setLineDash(isEditable ? [5, 5] : [2, 2]);
       ctx.beginPath();
       
-      const firstMapPoint = worldToMap(waypoints[0].x, waypoints[0].y);
-      const firstX = scene.x + (firstMapPoint.x * scene.scaleX);
-      const firstY = scene.y + (firstMapPoint.y * scene.scaleY);
-      ctx.moveTo(firstX, firstY);
+      const firstPoint = worldToCanvasPoint(waypoints[0].x, waypoints[0].y, mapInstance);
+      ctx.moveTo(firstPoint.x, firstPoint.y);
       
       for (let i = 1; i < waypoints.length; i++) {
-        const mapPoint = worldToMap(waypoints[i].x, waypoints[i].y);
-        const x = scene.x + (mapPoint.x * scene.scaleX);
-        const y = scene.y + (mapPoint.y * scene.scaleY);
-        ctx.lineTo(x, y);
+        const point = worldToCanvasPoint(waypoints[i].x, waypoints[i].y, mapInstance);
+        ctx.lineTo(point.x, point.y);
       }
       ctx.stroke();
       ctx.setLineDash([]);
     }
-  }, [keepoutZones, waypoints, worldToMap]);
+  }, [keepoutZones, waypoints, worldToCanvasPoint]);
 
   const clearAll = useCallback(() => {
     setWaypoints([]);
@@ -332,7 +357,9 @@ export const MapProvider: React.FC<MapProviderProps> = ({ children }) => {
     worldToMap,
     mapToWorld,
     initializeMap,
-    renderOverlay
+    renderOverlay,
+    worldToCanvasPoint,
+    canvasToWorldPoint
   };
 
   return <MapContext.Provider value={value}>{children}</MapContext.Provider>;

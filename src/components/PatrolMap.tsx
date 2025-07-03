@@ -19,16 +19,15 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
   const [localMapInstance, setLocalMapInstance] = useState<any>(null);
   
   const { 
-    mapData, 
     waypoints, 
     keepoutZones, 
     setWaypoints, 
     setKeepoutZones, 
-    worldToMap, 
-    mapToWorld, 
     initializeMap, 
     renderOverlay,
-    clearAll 
+    clearAll,
+    worldToCanvasPoint,
+    canvasToWorldPoint 
   } = useMapContext();
 
   // Update dimensions
@@ -67,37 +66,23 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     renderOverlay(canvas, localMapInstance, true);
   }, [renderOverlay, waypoints, keepoutZones, selectedPoint, localMapInstance]);
 
-  const canvasToWorld = useCallback((canvasX: number, canvasY: number) => {
-    if (!localMapInstance?.viewer?.scene || !mapData) return { x: 0, y: 0 };
-    
-    const scene = localMapInstance.viewer.scene;
-    const mapX = (canvasX - scene.x) / scene.scaleX;
-    const mapY = (canvasY - scene.y) / scene.scaleY;
-    
-    return mapToWorld(mapX, mapY);
-  }, [mapData, mapToWorld, localMapInstance]);
+  // Use the shared coordinate conversion from context
 
   const getClickedPoint = (x: number, y: number): string | null => {
-    if (!localMapInstance?.viewer?.scene) return null;
-    
-    const scene = localMapInstance.viewer.scene;
+    if (!localMapInstance) return null;
     
     // Check waypoints
     for (const point of waypoints) {
-      const mapPoint = worldToMap(point.x, point.y);
-      const canvasX = scene.x + (mapPoint.x * scene.scaleX);
-      const canvasY = scene.y + (mapPoint.y * scene.scaleY);
-      const distance = Math.sqrt((x - canvasX) ** 2 + (y - canvasY) ** 2);
+      const canvasPoint = worldToCanvasPoint(point.x, point.y, localMapInstance);
+      const distance = Math.sqrt((x - canvasPoint.x) ** 2 + (y - canvasPoint.y) ** 2);
       if (distance <= 12) return point.id;
     }
 
     // Check keepout zone points
     for (const zone of keepoutZones) {
       for (const point of zone.points) {
-        const mapPoint = worldToMap(point.x, point.y);
-        const canvasX = scene.x + (mapPoint.x * scene.scaleX);
-        const canvasY = scene.y + (mapPoint.y * scene.scaleY);
-        const distance = Math.sqrt((x - canvasX) ** 2 + (y - canvasY) ** 2);
+        const canvasPoint = worldToCanvasPoint(point.x, point.y, localMapInstance);
+        const distance = Math.sqrt((x - canvasPoint.x) ** 2 + (y - canvasPoint.y) ** 2);
         if (distance <= 8) return point.id;
       }
     }
@@ -114,7 +99,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     const y = e.clientY - rect.top;
 
     if (activeTool === 'waypoint') {
-      const worldPos = canvasToWorld(x, y);
+      const worldPos = canvasToWorldPoint(x, y, localMapInstance!);
       const newWaypoint: Point = {
         x: worldPos.x,
         y: worldPos.y,
@@ -122,7 +107,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
       };
       setWaypoints([...waypoints, newWaypoint]);
     } else if (activeTool === 'keepout') {
-      const worldPos = canvasToWorld(x, y);
+      const worldPos = canvasToWorldPoint(x, y, localMapInstance!);
       if (activeZone) {
         setKeepoutZones(keepoutZones.map(zone => 
           zone.id === activeZone 
@@ -172,11 +157,8 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
       
       const point = waypoints.find(p => p.id === clickedPoint);
       if (point) {
-        const mapPoint = worldToMap(point.x, point.y);
-        const scene = localMapInstance.viewer.scene;
-        const canvasX = scene.x + (mapPoint.x * scene.scaleX);
-        const canvasY = scene.y + (mapPoint.y * scene.scaleY);
-        setDragOffset({ x: x - canvasX, y: y - canvasY });
+        const canvasPoint = worldToCanvasPoint(point.x, point.y, localMapInstance);
+        setDragOffset({ x: x - canvasPoint.x, y: y - canvasPoint.y });
       }
     }
   };
@@ -191,7 +173,7 @@ const PatrolMap: React.FC<PatrolMapProps> = ({ activeTool, onSave, onClear }) =>
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const worldPos = canvasToWorld(x - dragOffset.x, y - dragOffset.y);
+    const worldPos = canvasToWorldPoint(x - dragOffset.x, y - dragOffset.y, localMapInstance!);
 
     const updatedWaypoints = waypoints.map(point => 
       point.id === selectedPoint 

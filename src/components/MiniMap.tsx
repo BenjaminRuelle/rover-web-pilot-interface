@@ -18,7 +18,7 @@ const MiniMap: React.FC = () => {
   const [lastMousePos, setLastMousePos] = useState({ x: 150, y: 165 });
   const [localMapInstance, setLocalMapInstance] = useState<any>(null);
   const { isConnected, subscribe } = useWebSocket();
-  const { waypoints, keepoutZones, initializeMap, worldToMap, renderOverlay } = useMapContext();
+  const { waypoints, keepoutZones, initializeMap, renderOverlay, worldToCanvasPoint } = useMapContext();
 
   // Initialize map for minimap
   useEffect(() => {
@@ -102,11 +102,8 @@ const MiniMap: React.FC = () => {
     renderOverlay(canvas, localMapInstance, false);
 
     // Add robot pose on top
-    if (robotPose && localMapInstance?.viewer?.scene) {
-      const scene = localMapInstance.viewer.scene;
-      const mapPoint = worldToMap(robotPose.position.x, robotPose.position.y);
-      const x = scene.x + (mapPoint.x * scene.scaleX);
-      const y = scene.y + (mapPoint.y * scene.scaleY);
+    if (robotPose && localMapInstance) {
+      const robotPoint = worldToCanvasPoint(robotPose.position.x, robotPose.position.y, localMapInstance);
       const yaw = quaternionToYaw(robotPose.orientation);
 
       // Draw robot as a triangle
@@ -116,7 +113,7 @@ const MiniMap: React.FC = () => {
       
       const size = 4;
       ctx.save();
-      ctx.translate(x, y);
+      ctx.translate(robotPoint.x, robotPoint.y);
       ctx.rotate(yaw);
       ctx.beginPath();
       ctx.moveTo(size, 0);
@@ -127,7 +124,7 @@ const MiniMap: React.FC = () => {
       ctx.stroke();
       ctx.restore();
     }
-  }, [robotPose, worldToMap, localMapInstance, quaternionToYaw, renderOverlay]);
+  }, [robotPose, worldToCanvasPoint, localMapInstance, quaternionToYaw, renderOverlay]);
 
   useEffect(() => {
     drawOverlay();
